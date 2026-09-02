@@ -173,20 +173,18 @@ export function renderInventoryView() {
                 </div>
               </div>
 
-              <!-- Complete Barcode Sticker Card Preview (Downloadable SVG Vector File) -->
+              <!-- Complete Barcode Sticker Card Preview (Official Validated SVG Vector File) -->
               <div id="full-barcode-card" class="p-3 bg-white rounded-lg border border-slate-300 text-center flex flex-col items-center gap-1 shadow-sm relative">
                 <div class="w-full flex justify-between items-center border-b border-slate-200 pb-1.5 mb-1">
                   <span class="text-xs text-primary font-mono font-extrabold uppercase tracking-wider">${selectedProd.sku}</span>
-                  <button id="download-barcode-btn" data-download-sku="${selectedProd.sku}" data-download-barcode="${selectedProd.barcode || selectedProd.sku}" class="p-1.5 text-slate-600 hover:text-primary rounded-md border border-slate-300 hover:bg-slate-100 transition-all shadow-xs" title="Download Complete Barcode Sticker SVG Vector File">
+                  <a href="/labels/${selectedProd.sku}.svg" download="Rulership_Bottle_Label_${selectedProd.sku}.svg" class="p-1.5 text-slate-600 hover:text-primary rounded-md border border-slate-300 hover:bg-slate-100 transition-all shadow-xs" title="Download Official Barcode Sticker SVG">
                     ${getIcon('download', 'svg-icon-sm')}
-                  </button>
+                  </a>
                 </div>
 
-                <div id="barcode-svg-container" class="w-full max-w-[210px] py-1">
-                  ${generateBarcodeSVG(selectedProd.barcode || selectedProd.sku)}
+                <div id="barcode-svg-container" class="w-full py-1">
+                  <img src="/labels/${selectedProd.sku}.svg" alt="Official Barcode Label ${selectedProd.sku}" class="w-full h-auto rounded border border-slate-200 shadow-xs" onerror="this.onerror=null; this.src='/labels/DET-PINE-2L.svg';" />
                 </div>
-
-                <span class="text-[11px] text-slate-800 font-heading font-extrabold tracking-tight border-t border-slate-200 pt-1.5 w-full mt-1">RULERSHIP LTD PTY</span>
               </div>
 
               <!-- Branch Stock List -->

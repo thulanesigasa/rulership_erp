@@ -204,7 +204,7 @@ export function renderModal() {
         </div>
         
         <div class="w-full py-1">
-          ${generateBarcodeSVG(p.barcode || p.sku, 42)}
+          <img src="/labels/${p.sku}.svg" alt="${p.name} Label" class="w-full h-auto rounded border border-slate-200" onerror="this.onerror=null; this.src='/labels/DET-PINE-2L.svg';" />
         </div>
 
         <div class="flex justify-between items-center w-full border-t border-slate-200 pt-1 mt-1 font-mono text-xs">
