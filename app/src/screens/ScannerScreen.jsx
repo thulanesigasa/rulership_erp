@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Animated } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  TextInput, Animated, Modal
+} from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { mobileStore, formatCurrency } from '../store/mobileStore';
 import { SvgIcon } from '../components/SvgIcon';
@@ -18,21 +21,19 @@ export function ScannerScreen() {
   });
   const [inputCode, setInputCode] = useState('');
   const [scanResult, setScanResult] = useState(null);
-  const [cashTendered, setCashTendered] = useState('70.00');
-  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
-  
-  // 3-second scanner pause & auto-reopen cycle
-  const [cameraPaused, setCameraPaused] = useState(false);
+
+  // Cooldown state for 3-second pause between scans
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
-  const cooldownTimerRef = useRef(null);
-  // Ref-based guard so handleBarcodeScanned always reads latest value
-  const cameraPausedRef = useRef(false);
+  const isCoolingDown = useRef(false);
+  const cooldownInterval = useRef(null);
 
-  // Smooth up-and-down moving blue laser animation
+  // Blue laser animation
   const laserAnim = useRef(new Animated.Value(0)).current;
+  const laserAnimation = useRef(null);
 
-  const syncStateFromStore = () => {
+  const syncState = () => {
     setStoreState({
       cart: [...mobileStore.cart],
       products: [...mobileStore.products],
@@ -45,891 +46,510 @@ export function ScannerScreen() {
   };
 
   useEffect(() => {
-    const unsubscribe = mobileStore.subscribe(() => {
-      syncStateFromStore();
-    });
-    return () => unsubscribe();
+    const unsub = mobileStore.subscribe(syncState);
+    return () => unsub();
   }, []);
 
+  // Start/stop laser animation when camera opens/closes
   useEffect(() => {
-    if (cameraActive && !cameraPaused) {
+    if (cameraOpen && cooldownSeconds === 0) {
       laserAnim.setValue(0);
-      const animation = Animated.loop(
+      laserAnimation.current = Animated.loop(
         Animated.sequence([
-          Animated.timing(laserAnim, {
-            toValue: 180,
-            duration: 1600,
-            useNativeDriver: true
-          }),
-          Animated.timing(laserAnim, {
-            toValue: 0,
-            duration: 1600,
-            useNativeDriver: true
-          })
+          Animated.timing(laserAnim, { toValue: 180, duration: 1600, useNativeDriver: true }),
+          Animated.timing(laserAnim, { toValue: 0, duration: 1600, useNativeDriver: true })
         ])
       );
-      animation.start();
-      return () => animation.stop();
+      laserAnimation.current.start();
+    } else {
+      if (laserAnimation.current) laserAnimation.current.stop();
     }
-  }, [cameraActive, cameraPaused]);
-
-  // Clean up timer on unmount
-  useEffect(() => {
     return () => {
-      if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
+      if (laserAnimation.current) laserAnimation.current.stop();
     };
-  }, []);
+  }, [cameraOpen, cooldownSeconds]);
 
-  const trigger3SecondCooldown = () => {
-    cameraPausedRef.current = true;
-    setCameraPaused(true);
+  const startCooldown = () => {
+    isCoolingDown.current = true;
     setCooldownSeconds(3);
-
-    if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
-
     let remaining = 3;
-    cooldownTimerRef.current = setInterval(() => {
+    if (cooldownInterval.current) clearInterval(cooldownInterval.current);
+    cooldownInterval.current = setInterval(() => {
       remaining -= 1;
+      setCooldownSeconds(remaining);
       if (remaining <= 0) {
-        clearInterval(cooldownTimerRef.current);
-        cooldownTimerRef.current = null;
-        cameraPausedRef.current = false;
-        setCameraPaused(false);
-        setCooldownSeconds(0);
-      } else {
-        setCooldownSeconds(remaining);
+        clearInterval(cooldownInterval.current);
+        cooldownInterval.current = null;
+        isCoolingDown.current = false;
       }
     }, 1000);
   };
 
-  const handleScanSubmit = (codeToScan) => {
-    const target = codeToScan || inputCode.trim() || '2024699900012';
-    
-    // Play POS audio beep sound
+  const processCode = (rawCode) => {
+    if (!rawCode || !rawCode.trim()) return;
+    const code = rawCode.trim();
+
     playScanBeep();
-
-    const res = mobileStore.scanBarcode(target);
-    
-    // Synchronously force React re-render of cart
-    syncStateFromStore();
+    const res = mobileStore.scanBarcode(code);
+    syncState();
     setScanResult(res);
-    setInputCode('');
 
-    // Trigger 3-second pause after scan so camera doesn't double-fire
-    if (cameraActive) {
-      trigger3SecondCooldown();
+    // Close camera, show countdown, reopen after 3s
+    if (cameraOpen) {
+      startCooldown();
     }
   };
 
-  const handleToggleCamera = async () => {
-    if (!cameraActive) {
-      if (!permission?.granted) {
-        const res = await requestPermission();
-        if (!res.granted) {
-          setScanResult({ success: false, message: 'Camera permission is required to scan barcodes with camera.' });
-          return;
-        }
+  // Called by CameraView when it reads a barcode from the camera feed
+  const onBarcodeRead = ({ data }) => {
+    if (isCoolingDown.current) return;
+    if (!data) return;
+    processCode(data);
+  };
+
+  const openCamera = async () => {
+    if (!permission?.granted) {
+      const result = await requestPermission();
+      if (!result.granted) {
+        setScanResult({ success: false, message: 'Camera permission denied.' });
+        return;
       }
-      setCameraPaused(false);
-      setCameraActive(true);
-    } else {
-      // If camera is open and user clicks 'Scan Now', trigger scan & add to cart!
-      handleScanSubmit(inputCode || '2024699900036');
     }
+    isCoolingDown.current = false;
+    setCooldownSeconds(0);
+    setCameraOpen(true);
   };
 
-  const handleBarcodeScanned = (scanEvent) => {
-    // Use ref so this always reads the live value, no stale closure
-    if (cameraPausedRef.current) return;
+  const closeCamera = () => {
+    if (cooldownInterval.current) clearInterval(cooldownInterval.current);
+    cooldownInterval.current = null;
+    isCoolingDown.current = false;
+    setCooldownSeconds(0);
+    setCameraOpen(false);
+  };
 
-    const barcodeData = scanEvent?.data || scanEvent?.raw || '2024699900012';
-    handleScanSubmit(barcodeData);
+  const handleManualSubmit = () => {
+    const code = inputCode.trim();
+    if (!code) return;
+    processCode(code);
+    setInputCode('');
   };
 
   const isPos = storeState.scanMode === 'pos';
-  const cartTotal = storeState.cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  const cartTotal = storeState.cart.reduce((s, i) => s + i.price * i.qty, 0);
   const vatAmount = cartTotal * (storeState.vatRate / (1 + storeState.vatRate));
   const subtotalExclVat = cartTotal - vatAmount;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Universal Page Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Rulership ERP</Text>
-        <Text style={styles.subTitle}>Mobile Barcode Scanner</Text>
-      </View>
+    <View style={{ flex: 1 }}>
+      {/* FULLSCREEN CAMERA MODAL — no overlapping touch layers */}
+      <Modal
+        visible={cameraOpen}
+        animationType="slide"
+        onRequestClose={closeCamera}
+      >
+        <View style={styles.cameraModal}>
+          {/* Camera Header */}
+          <View style={styles.camHeader}>
+            <Text style={styles.camHeaderTitle}>Rulership ERP</Text>
+            <Text style={styles.camHeaderSub}>
+              {isPos ? 'POS Payment Scanner — Point at bottle barcode' : 'Restock Scanner — Point at bottle barcode'}
+            </Text>
+          </View>
 
-      {/* Mode Switcher Tabs: POS Payment (-1 Stock) vs Add Product (+1 Stock) */}
-      <View style={styles.modeTabs}>
-        <TouchableOpacity 
-          style={[styles.modeTab, isPos ? styles.modeTabActivePos : null]}
-          onPress={() => {
-            mobileStore.setScanMode('pos');
-            setScanResult(null);
-            syncStateFromStore();
-          }}
-        >
-          <SvgIcon name="cart" size={16} color={isPos ? '#ffffff' : '#64748b'} />
-          <Text style={[styles.modeTabText, isPos ? styles.modeTabTextActive : null]}>
-            Payment / POS (-1 Stock)
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.modeTab, !isPos ? styles.modeTabActiveRestock : null]}
-          onPress={() => {
-            mobileStore.setScanMode('restock');
-            setScanResult(null);
-            syncStateFromStore();
-          }}
-        >
-          <SvgIcon name="plus" size={16} color={!isPos ? '#ffffff' : '#64748b'} />
-          <Text style={[styles.modeTabText, !isPos ? styles.modeTabTextActive : null]}>
-            Add Product (+1 Stock)
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Mode Description Card */}
-      <View style={[styles.modeInfoCard, isPos ? styles.infoPos : styles.infoRestock]}>
-        <Text style={styles.modeInfoTitle}>
-          {isPos ? 'POS PAYMENT & CHECKOUT MODE' : 'ADD PRODUCT INVENTORY RESTOCK MODE'}
-        </Text>
-        <Text style={styles.modeInfoDesc}>
-          {isPos 
-            ? 'Scanning a bottle barcode plays POS beep, adds item to cart (R 69.99 Incl. VAT), pauses scanner for 3s, and re-opens automatically.'
-            : 'Scanning a bottle barcode adds +1 bottle to inventory stock and marks the product as In Stock.'}
-        </Text>
-      </View>
-
-      {/* Embedded Camera Scanner Frame */}
-      <View style={styles.scannerBox}>
-        <View style={styles.viewfinderFrame}>
-          {cameraActive && permission?.granted ? (
-            cameraPaused ? (
-              /* 3-Second Cooldown Viewfinder Pause Screen */
-              <View style={styles.pausedFrame}>
-                <View style={styles.beepBadge}>
-                  <SvgIcon name="check" size={24} color="#ffffff" />
-                </View>
-                <Text style={styles.pausedTitle}>
-                  {scanResult?.product ? `✓ Scanned ${scanResult.product.name}` : '✓ Barcode Scanned!'}
-                </Text>
-                <Text style={styles.pausedSub}>Added to POS Cart • Playing Audio Beep</Text>
-                <View style={styles.countdownPill}>
-                  <Text style={styles.countdownText}>Re-opening scanner in {cooldownSeconds}s...</Text>
-                </View>
+          {cooldownSeconds > 0 ? (
+            /* 3-second cooldown screen between scans */
+            <View style={styles.cooldownScreen}>
+              <View style={styles.cooldownCheckBadge}>
+                <SvgIcon name="check" size={28} color="#ffffff" />
               </View>
-            ) : (
-              <View style={{ flex: 1, width: '100%', position: 'relative' }}>
-                <CameraView 
-                  style={styles.fullCameraStream}
+              <Text style={styles.cooldownTitle}>
+                {scanResult?.product ? scanResult.product.name : 'Item Scanned!'}
+              </Text>
+              <Text style={styles.cooldownSub}>
+                {isPos ? 'Added to POS Cart' : 'Inventory Restocked'}
+              </Text>
+              <View style={styles.cooldownPill}>
+                <Text style={styles.cooldownCount}>Re-opening in {cooldownSeconds}s</Text>
+              </View>
+            </View>
+          ) : (
+            /* Live camera feed — NO overlapping touch views */
+            <View style={styles.cameraFeed}>
+              {permission?.granted && (
+                <CameraView
+                  style={StyleSheet.absoluteFillObject}
                   facing="back"
-                  onBarcodeScanned={handleBarcodeScanned}
+                  onBarcodeScanned={onBarcodeRead}
                   barcodeScannerSettings={{
-                    barcodeTypes: ["qr", "code128", "ean13", "ean8", "upc_a", "upc_e"]
+                    barcodeTypes: ['qr', 'code128', 'ean13', 'ean8', 'upc_a', 'upc_e']
                   }}
                 />
+              )}
 
-                {/* Moving Blue Scanning Laser Bar (zIndex: 50) */}
-                <Animated.View 
-                  pointerEvents="none"
-                  style={[
-                    styles.animatedBlueLaser,
-                    { transform: [{ translateY: laserAnim }] }
-                  ]} 
-                />
+              {/* Laser bar — pointerEvents none so camera gets all touch */}
+              <Animated.View
+                pointerEvents="none"
+                style={[styles.laser, { transform: [{ translateY: laserAnim }] }]}
+              />
 
-                {/* Touch Overlay (zIndex: 15) to guarantee tap-to-scan works on Android */}
-                <TouchableOpacity 
-                  style={styles.touchOverlayLayer}
-                  activeOpacity={0.8}
-                  onPress={() => handleScanSubmit('2024699900036')}
-                >
-                  <View style={styles.tapTipBadge}>
-                    <Text style={styles.tapTipText}>Tap Frame to Add Item to Cart</Text>
-                  </View>
-
-                  <TouchableOpacity 
-                    style={styles.closeCamBtn} 
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      setCameraActive(false);
-                      setCameraPaused(false);
-                    }}
-                  >
-                    <SvgIcon name="close" size={16} color="#ffffff" />
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              </View>
-            )
-          ) : (
-            /* Non-clickable info container - Only 'Scan Code' button below triggers camera */
-            <View style={styles.launchCameraCard}>
-              <View style={styles.launchIconBg}>
-                <SvgIcon name="barcode" size={32} color="#0058be" />
-              </View>
-              <Text style={styles.launchTitle}>Click "Scan Code" below to Open Camera Scanner</Text>
-              <Text style={styles.launchSub}>Scans bottle, plays POS beep, pauses 3s, then re-opens</Text>
+              {/* Corner reticle marks */}
+              <View pointerEvents="none" style={[styles.corner, styles.cornerTL]} />
+              <View pointerEvents="none" style={[styles.corner, styles.cornerTR]} />
+              <View pointerEvents="none" style={[styles.corner, styles.cornerBL]} />
+              <View pointerEvents="none" style={[styles.corner, styles.cornerBR]} />
             </View>
           )}
+
+          {/* Close camera button */}
+          <TouchableOpacity style={styles.closeCamButton} onPress={closeCamera}>
+            <SvgIcon name="close" size={18} color="#ffffff" />
+            <Text style={styles.closeCamText}>Close Scanner</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* MAIN SCREEN */}
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Rulership ERP</Text>
+          <Text style={styles.subTitle}>Mobile Barcode Scanner</Text>
         </View>
 
-        {/* Manual Barcode Entry Form & Scan Trigger */}
-        <View style={styles.inputRow}>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Enter barcode manually (e.g. 2024699900012)..."
-            placeholderTextColor="#94a3b8"
-            value={inputCode}
-            onChangeText={setInputCode}
-            onSubmitEditing={() => handleScanSubmit()}
-          />
-          <TouchableOpacity style={styles.scanBtn} onPress={handleToggleCamera}>
-            <SvgIcon name="barcode" size={16} color="#ffffff" />
-            <Text style={styles.scanBtnText}>{cameraActive ? (cameraPaused ? 'Re-opening...' : 'Scan Now') : 'Scan Code'}</Text>
+        {/* Mode Tabs */}
+        <View style={styles.modeTabs}>
+          <TouchableOpacity
+            style={[styles.modeTab, isPos && styles.modeTabActivePos]}
+            onPress={() => { mobileStore.setScanMode('pos'); setScanResult(null); syncState(); }}
+          >
+            <SvgIcon name="cart" size={16} color={isPos ? '#ffffff' : '#64748b'} />
+            <Text style={[styles.modeTabText, isPos && styles.modeTabTextActive]}>Payment / POS</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeTab, !isPos && styles.modeTabActiveRestock]}
+            onPress={() => { mobileStore.setScanMode('restock'); setScanResult(null); syncState(); }}
+          >
+            <SvgIcon name="plus" size={16} color={!isPos ? '#ffffff' : '#64748b'} />
+            <Text style={[styles.modeTabText, !isPos && styles.modeTabTextActive]}>Add Product</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Quick Test Scanner Chips */}
-        <Text style={styles.quickLabel}>Or Tap Any Bottle Barcode to Scan & Beep Instantly:</Text>
-        <View style={styles.quickGrid}>
-          {storeState.products.slice(0, 3).map((prod) => (
-            <TouchableOpacity 
-              key={prod.id} 
-              style={styles.quickChip}
-              onPress={() => handleScanSubmit(prod.barcode)}
-            >
-              <Text style={styles.quickChipTitle}>{prod.name.split(' ')[1]} {prod.name.split(' ')[2]}</Text>
-              <Text style={styles.quickChipCode}>{prod.barcode}</Text>
+        {/* Mode Description */}
+        <View style={[styles.modeInfo, isPos ? styles.infoPosColor : styles.infoRestockColor]}>
+          <Text style={styles.modeInfoTitle}>
+            {isPos ? 'POS PAYMENT MODE — Cart & Receipt' : 'RESTOCK MODE — Inventory +1'}
+          </Text>
+          <Text style={styles.modeInfoDesc}>
+            {isPos
+              ? 'Point camera at bottle barcode. Scanner beeps, item adds to cart (R 69.99 incl. VAT), camera pauses 3s then reopens.'
+              : 'Point camera at bottle barcode. Scanner beeps, +1 added to inventory stock, camera pauses 3s then reopens.'}
+          </Text>
+        </View>
+
+        {/* Open Camera Button */}
+        <TouchableOpacity style={styles.openCameraBtn} onPress={openCamera}>
+          <SvgIcon name="barcode" size={20} color="#ffffff" />
+          <Text style={styles.openCameraText}>Open Camera Scanner</Text>
+        </TouchableOpacity>
+
+        {/* Manual Entry */}
+        <View style={styles.manualSection}>
+          <Text style={styles.manualLabel}>Manual Barcode Entry</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Type barcode e.g. 2024699900025..."
+              placeholderTextColor="#94a3b8"
+              value={inputCode}
+              onChangeText={setInputCode}
+              onSubmitEditing={handleManualSubmit}
+              keyboardType="numeric"
+            />
+            <TouchableOpacity style={styles.submitBtn} onPress={handleManualSubmit}>
+              <Text style={styles.submitBtnText}>Add</Text>
             </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {/* Prominent Scan Result Banner */}
-      {scanResult && (
-        <View style={[styles.resultCard, scanResult.success ? styles.resSuccess : styles.resError]}>
-          <View style={styles.resHeader}>
-            <View style={styles.resIconBg}>
-              <SvgIcon name={scanResult.success ? 'check' : 'close'} size={20} color="#ffffff" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.resTitle}>
-                {scanResult.success 
-                  ? (isPos ? 'Item Added to Cart (-1 Stock)' : 'Inventory Restocked (+1 Stock)') 
-                  : 'Scan Failed'}
-              </Text>
-              <Text style={styles.resMsg}>{scanResult.message}</Text>
-            </View>
           </View>
-
-          {scanResult.product && (
-            <View style={styles.resProductDetails}>
-              <View style={styles.resDetailRow}>
-                <Text style={styles.resDetailLabel}>Product:</Text>
-                <Text style={styles.resDetailVal}>{scanResult.product.name}</Text>
-              </View>
-              <View style={styles.resDetailRow}>
-                <Text style={styles.resDetailLabel}>Barcode / SKU:</Text>
-                <Text style={styles.resDetailCode}>{scanResult.product.barcode} • {scanResult.product.sku}</Text>
-              </View>
-              <View style={styles.resDetailRow}>
-                <Text style={styles.resDetailLabel}>Price (VAT Incl.):</Text>
-                <Text style={styles.resDetailPrice}>{formatCurrency(scanResult.product.price)}</Text>
-              </View>
-              <View style={styles.resDetailRow}>
-                <Text style={styles.resDetailLabel}>New Inventory Stock:</Text>
-                <Text style={styles.resDetailStock}>{scanResult.product.stock} bottles available</Text>
-              </View>
-            </View>
-          )}
         </View>
-      )}
 
-      {/* Active POS Checkout Cart (In POS Mode) */}
-      {isPos && (
-        <View style={styles.cartCard}>
-          <View style={styles.cartHeader}>
-            <Text style={styles.cartTitle}>Active Mobile Checkout Cart</Text>
-            <Text style={styles.cartCount}>{storeState.cart.reduce((a, b) => a + b.qty, 0)} Items</Text>
+        {/* Quick Bottle Chips */}
+        <View style={styles.chipSection}>
+          <Text style={styles.chipLabel}>Quick Scan — Tap a Bottle:</Text>
+          <View style={styles.chipGrid}>
+            {storeState.products.slice(0, 3).map((prod) => (
+              <TouchableOpacity
+                key={prod.id}
+                style={styles.chip}
+                onPress={() => processCode(prod.barcode)}
+              >
+                <Text style={styles.chipName}>{prod.sku}</Text>
+                <Text style={styles.chipBarcode}>{prod.barcode}</Text>
+                <Text style={styles.chipStock}>{prod.stock} in stock</Text>
+              </TouchableOpacity>
+            ))}
           </View>
+        </View>
 
-          {storeState.cart.length === 0 ? (
-            <View style={styles.emptyCart}>
-              <SvgIcon name="cart" size={32} color="#94a3b8" />
-              <Text style={styles.emptyText}>Cart is currently empty</Text>
-              <Text style={styles.emptySub}>Scan bottle barcodes above to add items to cart</Text>
-            </View>
-          ) : (
-            <View style={styles.cartItemsList}>
-              {storeState.cart.map((item) => (
-                <View key={item.productId} style={styles.cartItemRow}>
-                  <View style={styles.cartItemLeft}>
-                    <Text style={styles.cartItemName}>{item.name}</Text>
-                    <Text style={styles.cartItemCode}>{item.barcode} • {formatCurrency(item.price)} ea</Text>
-                  </View>
-
-                  <View style={styles.qtyControl}>
-                    <TouchableOpacity 
-                      style={styles.qtyBtn} 
-                      onPress={() => {
-                        mobileStore.updateCartQty(item.productId, -1);
-                        syncStateFromStore();
-                      }}
-                    >
-                      <SvgIcon name="minus" size={14} color="#0f172a" />
-                    </TouchableOpacity>
-                    <Text style={styles.qtyVal}>{item.qty}</Text>
-                    <TouchableOpacity 
-                      style={styles.qtyBtn} 
-                      onPress={() => {
-                        mobileStore.updateCartQty(item.productId, 1);
-                        syncStateFromStore();
-                      }}
-                    >
-                      <SvgIcon name="plus" size={14} color="#0f172a" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
-
-              {/* Cart Totals Breakdown */}
-              <View style={styles.totalsBox}>
-                <View style={styles.totalLine}>
-                  <Text style={styles.totalLineLabel}>Subtotal Excl. VAT:</Text>
-                  <Text style={styles.totalLineVal}>{formatCurrency(subtotalExclVat)}</Text>
-                </View>
-                <View style={styles.totalLine}>
-                  <Text style={styles.totalLineLabel}>15% SARS VAT (Included):</Text>
-                  <Text style={styles.totalLineVal}>{formatCurrency(vatAmount)}</Text>
-                </View>
-                <View style={[styles.totalLine, styles.grandTotalLine]}>
-                  <Text style={styles.grandTotalText}>GRAND TOTAL (INCL. VAT):</Text>
-                  <Text style={styles.grandTotalValText}>{formatCurrency(cartTotal)}</Text>
-                </View>
-
-                {/* Complete Payment Button */}
-                <TouchableOpacity 
-                  style={styles.payBtn}
-                  onPress={() => {
-                    mobileStore.completeCheckout(parseFloat(cashTendered) || 70.00, 'Cash');
-                    syncStateFromStore();
-                  }}
-                >
-                  <SvgIcon name="receipt" size={18} color="#ffffff" />
-                  <Text style={styles.payBtnText}>Pay {formatCurrency(cartTotal)} & Dispense Receipt</Text>
-                </TouchableOpacity>
+        {/* Scan Result */}
+        {scanResult && (
+          <View style={[styles.resultCard, scanResult.success ? styles.resultSuccess : styles.resultError]}>
+            <View style={styles.resultRow}>
+              <View style={styles.resultIcon}>
+                <SvgIcon name={scanResult.success ? 'check' : 'close'} size={18} color="#ffffff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.resultTitle}>
+                  {scanResult.success
+                    ? (isPos ? 'Added to Cart' : 'Stock Updated')
+                    : 'Scan Failed'}
+                </Text>
+                <Text style={styles.resultMsg}>{scanResult.message}</Text>
               </View>
             </View>
-          )}
-        </View>
-      )}
+            {scanResult.product && (
+              <View style={styles.resultDetails}>
+                <Text style={styles.detailRow}><Text style={styles.detailKey}>Product: </Text>{scanResult.product.name}</Text>
+                <Text style={styles.detailRow}><Text style={styles.detailKey}>SKU: </Text>{scanResult.product.sku}</Text>
+                <Text style={styles.detailRow}><Text style={styles.detailKey}>Barcode: </Text>{scanResult.product.barcode}</Text>
+                <Text style={styles.detailRow}><Text style={styles.detailKey}>Price: </Text>{formatCurrency(scanResult.product.price)}</Text>
+                <Text style={styles.detailRow}><Text style={styles.detailKey}>Remaining Stock: </Text>{scanResult.product.stock} bottles</Text>
+              </View>
+            )}
+          </View>
+        )}
 
-      {/* Thermal Receipt Modal */}
-      <ReceiptModal 
+        {/* Cart — POS Mode Only */}
+        {isPos && (
+          <View style={styles.cartCard}>
+            <View style={styles.cartHeader}>
+              <Text style={styles.cartTitle}>Active Checkout Cart</Text>
+              <Text style={styles.cartCount}>{storeState.cart.reduce((a, b) => a + b.qty, 0)} Items</Text>
+            </View>
+
+            {storeState.cart.length === 0 ? (
+              <View style={styles.emptyCart}>
+                <SvgIcon name="cart" size={28} color="#94a3b8" />
+                <Text style={styles.emptyText}>Cart empty — scan a bottle to start</Text>
+              </View>
+            ) : (
+              <>
+                {storeState.cart.map((item) => (
+                  <View key={item.productId} style={styles.cartRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.cartItemName}>{item.name}</Text>
+                      <Text style={styles.cartItemCode}>{item.barcode} • {formatCurrency(item.price)} ea</Text>
+                    </View>
+                    <View style={styles.qtyRow}>
+                      <TouchableOpacity style={styles.qtyBtn} onPress={() => { mobileStore.updateCartQty(item.productId, -1); syncState(); }}>
+                        <SvgIcon name="minus" size={12} color="#0f172a" />
+                      </TouchableOpacity>
+                      <Text style={styles.qtyNum}>{item.qty}</Text>
+                      <TouchableOpacity style={styles.qtyBtn} onPress={() => { mobileStore.updateCartQty(item.productId, 1); syncState(); }}>
+                        <SvgIcon name="plus" size={12} color="#0f172a" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+
+                <View style={styles.totals}>
+                  <View style={styles.totalRow}>
+                    <Text style={styles.totalLbl}>Subtotal (excl. VAT):</Text>
+                    <Text style={styles.totalVal}>{formatCurrency(subtotalExclVat)}</Text>
+                  </View>
+                  <View style={styles.totalRow}>
+                    <Text style={styles.totalLbl}>15% SARS VAT:</Text>
+                    <Text style={styles.totalVal}>{formatCurrency(vatAmount)}</Text>
+                  </View>
+                  <View style={[styles.totalRow, styles.grandTotalRow]}>
+                    <Text style={styles.grandLbl}>TOTAL (incl. VAT):</Text>
+                    <Text style={styles.grandVal}>{formatCurrency(cartTotal)}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.payBtn}
+                    onPress={() => { mobileStore.completeCheckout(cartTotal + 0.01, 'Cash'); syncState(); }}
+                  >
+                    <SvgIcon name="receipt" size={16} color="#ffffff" />
+                    <Text style={styles.payBtnText}>Pay {formatCurrency(cartTotal)} & Print Receipt</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      <ReceiptModal
         visible={storeState.receiptModalVisible}
         transaction={storeState.lastTransaction}
-        onClose={() => {
-          mobileStore.closeReceiptModal();
-          syncStateFromStore();
-        }}
+        onClose={() => { mobileStore.closeReceiptModal(); syncState(); }}
       />
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc'
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  content: { padding: 16, gap: 14, paddingBottom: 40 },
+
+  // Camera Modal
+  cameraModal: { flex: 1, backgroundColor: '#0f172a' },
+  camHeader: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12, backgroundColor: '#0f172a' },
+  camHeaderTitle: { fontSize: 18, fontWeight: '800', color: '#ffffff', letterSpacing: -0.5 },
+  camHeaderSub: { fontSize: 11, color: '#94a3b8', marginTop: 2 },
+
+  cameraFeed: { flex: 1, position: 'relative', overflow: 'hidden' },
+
+  laser: {
+    position: 'absolute', top: 0, left: 0, right: 0,
+    width: '100%', height: 3, backgroundColor: '#0284c7',
+    shadowColor: '#0284c7', shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1, shadowRadius: 8, elevation: 10,
+    zIndex: 10
   },
-  content: {
-    padding: 16,
-    gap: 14
+
+  // Corner reticle marks
+  corner: { position: 'absolute', width: 24, height: 24, borderColor: '#38bdf8', zIndex: 10 },
+  cornerTL: { top: 40, left: 40, borderTopWidth: 3, borderLeftWidth: 3 },
+  cornerTR: { top: 40, right: 40, borderTopWidth: 3, borderRightWidth: 3 },
+  cornerBL: { bottom: 40, left: 40, borderBottomWidth: 3, borderLeftWidth: 3 },
+  cornerBR: { bottom: 40, right: 40, borderBottomWidth: 3, borderRightWidth: 3 },
+
+  // Cooldown screen
+  cooldownScreen: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#0f172a', gap: 10
   },
-  header: {
-    marginBottom: 2
+  cooldownCheckBadge: {
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: '#0058be', justifyContent: 'center', alignItems: 'center'
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0f172a',
-    letterSpacing: -0.5
+  cooldownTitle: { fontSize: 16, fontWeight: '800', color: '#ffffff', textAlign: 'center', paddingHorizontal: 20 },
+  cooldownSub: { fontSize: 12, color: '#94a3b8' },
+  cooldownPill: {
+    marginTop: 8, backgroundColor: 'rgba(0, 88, 190, 0.3)',
+    paddingHorizontal: 20, paddingVertical: 8,
+    borderRadius: 20, borderWidth: 1, borderColor: '#38bdf8'
   },
-  subTitle: {
-    fontSize: 11,
-    color: '#64748b',
-    marginTop: 1
+  cooldownCount: { fontSize: 13, fontWeight: '800', color: '#38bdf8' },
+
+  closeCamButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#1e293b', paddingVertical: 16, gap: 8,
+    borderTopWidth: 1, borderTopColor: '#334155'
   },
+  closeCamText: { color: '#94a3b8', fontSize: 14, fontWeight: '700' },
+
+  // Main screen
+  header: { marginBottom: 4 },
+  title: { fontSize: 22, fontWeight: '800', color: '#0f172a', letterSpacing: -0.5 },
+  subTitle: { fontSize: 11, color: '#64748b', marginTop: 1 },
+
   modeTabs: {
-    flexDirection: 'row',
-    backgroundColor: '#e2e8f0',
-    borderRadius: 10,
-    padding: 4,
-    gap: 4
+    flexDirection: 'row', backgroundColor: '#e2e8f0',
+    borderRadius: 10, padding: 4, gap: 4
   },
   modeTab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 6
+    flex: 1, flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', paddingVertical: 10, borderRadius: 8, gap: 6
   },
-  modeTabActivePos: {
-    backgroundColor: '#0058be'
+  modeTabActivePos: { backgroundColor: '#0058be' },
+  modeTabActiveRestock: { backgroundColor: '#0284c7' },
+  modeTabText: { fontSize: 11, fontWeight: '700', color: '#475569' },
+  modeTabTextActive: { color: '#ffffff' },
+
+  modeInfo: { padding: 12, borderRadius: 8, borderWidth: 1 },
+  infoPosColor: { backgroundColor: '#e0f2fe', borderColor: '#bae6fd' },
+  infoRestockColor: { backgroundColor: '#f0f9ff', borderColor: '#e0f2fe' },
+  modeInfoTitle: { fontSize: 10, fontWeight: '800', color: '#0058be', letterSpacing: 0.5 },
+  modeInfoDesc: { fontSize: 10, color: '#334155', marginTop: 4, lineHeight: 15 },
+
+  openCameraBtn: {
+    backgroundColor: '#0058be', borderRadius: 10,
+    paddingVertical: 14, flexDirection: 'row',
+    alignItems: 'center', justifyContent: 'center', gap: 10
   },
-  modeTabActiveRestock: {
-    backgroundColor: '#0284c7'
-  },
-  modeTabText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#475569'
-  },
-  modeTabTextActive: {
-    color: '#ffffff'
-  },
-  modeInfoCard: {
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1
-  },
-  infoPos: {
-    backgroundColor: '#e0f2fe',
-    borderColor: '#bae6fd'
-  },
-  infoRestock: {
-    backgroundColor: '#f0f9ff',
-    borderColor: '#e0f2fe'
-  },
-  modeInfoTitle: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#0058be',
-    letterSpacing: 0.5
-  },
-  modeInfoDesc: {
-    fontSize: 10,
-    color: '#334155',
-    marginTop: 2,
-    lineHeight: 14
-  },
-  scannerBox: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    gap: 12
-  },
-  viewfinderFrame: {
-    height: 220,
-    backgroundColor: '#0f172a',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#0058be',
-    position: 'relative',
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  fullCameraStream: {
-    width: '135%',
-    height: '135%',
-    alignSelf: 'center',
-    justifyContent: 'center'
-  },
-  animatedBlueLaser: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    width: '100%',
-    height: 4,
-    backgroundColor: '#0284c7',
-    shadowColor: '#0284c7',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.9,
-    shadowRadius: 6,
-    elevation: 12,
-    zIndex: 50
-  },
-  touchOverlayLayer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 15,
-    justifyContent: 'space-between',
-    padding: 10
-  },
-  pausedFrame: {
-    flex: 1,
-    width: '100%',
-    backgroundColor: '#0f172a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16
-  },
-  beepBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#0058be',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8
-  },
-  pausedTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#ffffff',
-    textAlign: 'center'
-  },
-  pausedSub: {
-    fontSize: 10,
-    color: '#94a3b8',
-    marginTop: 2,
-    textAlign: 'center'
-  },
-  countdownPill: {
-    marginTop: 10,
-    backgroundColor: 'rgba(0, 88, 190, 0.25)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#38bdf8'
-  },
-  countdownText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#38bdf8'
-  },
-  launchCameraCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16
-  },
-  launchIconBg: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#e0f2fe',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8
-  },
-  launchTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#ffffff',
-    textAlign: 'center'
-  },
-  launchSub: {
-    fontSize: 10,
-    color: '#bae6fd',
-    marginTop: 2,
-    textAlign: 'center'
-  },
-  tapTipBadge: {
-    position: 'absolute',
-    bottom: 12,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#38bdf8'
-  },
-  tapTipText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#38bdf8'
-  },
-  closeCamBtn: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 60
-  },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 8
-  },
+  openCameraText: { color: '#ffffff', fontSize: 14, fontWeight: '800' },
+
+  manualSection: { gap: 6 },
+  manualLabel: { fontSize: 11, fontWeight: '700', color: '#64748b' },
+  inputRow: { flexDirection: 'row', gap: 8 },
   textInput: {
-    flex: 1,
-    backgroundColor: '#f1f5f9',
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 11,
-    color: '#0f172a'
+    flex: 1, backgroundColor: '#ffffff', borderWidth: 1,
+    borderColor: '#cbd5e1', borderRadius: 8,
+    paddingHorizontal: 12, fontSize: 12, color: '#0f172a', height: 44
   },
-  scanBtn: {
-    backgroundColor: '#0058be',
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    gap: 6
+  submitBtn: {
+    backgroundColor: '#0284c7', paddingHorizontal: 16,
+    borderRadius: 8, justifyContent: 'center', alignItems: 'center'
   },
-  scanBtnText: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: '700'
+  submitBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
+
+  chipSection: { gap: 8 },
+  chipLabel: { fontSize: 11, fontWeight: '700', color: '#64748b' },
+  chipGrid: { flexDirection: 'row', gap: 8 },
+  chip: {
+    flex: 1, backgroundColor: '#ffffff', padding: 10,
+    borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', gap: 2
   },
-  quickLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#64748b'
+  chipName: { fontSize: 10, fontWeight: '800', color: '#0058be' },
+  chipBarcode: { fontSize: 9, fontFamily: 'monospace', color: '#64748b' },
+  chipStock: { fontSize: 9, color: '#0284c7', fontWeight: '600' },
+
+  resultCard: { borderRadius: 12, padding: 14, borderWidth: 1, gap: 10 },
+  resultSuccess: { backgroundColor: '#e0f2fe', borderColor: '#bae6fd' },
+  resultError: { backgroundColor: '#fee2e2', borderColor: '#fca5a5' },
+  resultRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  resultIcon: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: '#0058be', justifyContent: 'center', alignItems: 'center'
   },
-  quickGrid: {
-    flexDirection: 'row',
-    gap: 6
+  resultTitle: { fontSize: 13, fontWeight: '800', color: '#0f172a' },
+  resultMsg: { fontSize: 11, color: '#0058be', fontWeight: '600', marginTop: 1 },
+  resultDetails: {
+    backgroundColor: '#ffffff', borderRadius: 8, padding: 10,
+    borderWidth: 1, borderColor: '#bae6fd', gap: 4
   },
-  quickChip: {
-    flex: 1,
-    backgroundColor: '#f1f5f9',
-    padding: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#e2e8f0'
-  },
-  quickChipTitle: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#0f172a'
-  },
-  quickChipCode: {
-    fontSize: 9,
-    fontFamily: 'monospace',
-    color: '#0058be',
-    marginTop: 2
-  },
-  resultCard: {
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    gap: 10
-  },
-  resSuccess: {
-    backgroundColor: '#e0f2fe',
-    borderColor: '#bae6fd'
-  },
-  resError: {
-    backgroundColor: '#fee2e2',
-    borderColor: '#fca5a5'
-  },
-  resHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10
-  },
-  resIconBg: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#0058be',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  resTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0f172a'
-  },
-  resMsg: {
-    fontSize: 11,
-    color: '#0058be',
-    fontWeight: '600',
-    marginTop: 1
-  },
-  resProductDetails: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#bae6fd',
-    gap: 4
-  },
-  resDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  resDetailLabel: {
-    fontSize: 10,
-    color: '#64748b',
-    fontWeight: '600'
-  },
-  resDetailVal: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#0f172a'
-  },
-  resDetailCode: {
-    fontSize: 10,
-    fontFamily: 'monospace',
-    color: '#0058be'
-  },
-  resDetailPrice: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#0058be',
-    fontFamily: 'monospace'
-  },
-  resDetailStock: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#0284c7'
-  },
+  detailRow: { fontSize: 11, color: '#334155' },
+  detailKey: { fontWeight: '700', color: '#0f172a' },
+
   cartCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#cbd5e1'
+    backgroundColor: '#ffffff', borderRadius: 12,
+    padding: 14, borderWidth: 1, borderColor: '#cbd5e1', gap: 10
   },
   cartHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    paddingBottom: 8,
-    marginBottom: 10
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0', paddingBottom: 8
   },
-  cartTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0f172a'
+  cartTitle: { fontSize: 13, fontWeight: '800', color: '#0f172a' },
+  cartCount: { fontSize: 10, fontFamily: 'monospace', color: '#0058be', fontWeight: '700' },
+
+  emptyCart: { alignItems: 'center', paddingVertical: 20, gap: 6 },
+  emptyText: { fontSize: 12, color: '#94a3b8', fontWeight: '600' },
+
+  cartRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', gap: 8
   },
-  cartCount: {
-    fontSize: 10,
-    fontFamily: 'monospace',
-    color: '#0058be',
-    fontWeight: '700'
+  cartItemName: { fontSize: 11, fontWeight: '700', color: '#0f172a' },
+  cartItemCode: { fontSize: 9, fontFamily: 'monospace', color: '#64748b', marginTop: 1 },
+  qtyRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#f1f5f9', borderRadius: 6, padding: 2, gap: 6
   },
-  emptyCart: {
-    alignItems: 'center',
-    paddingVertical: 20
-  },
-  emptyText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#475569',
-    marginTop: 6
-  },
-  emptySub: {
-    fontSize: 10,
-    color: '#94a3b8',
-    marginTop: 2
-  },
-  cartItemsList: {
-    gap: 8
-  },
-  cartItemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9'
-  },
-  cartItemLeft: {
-    flex: 1
-  },
-  cartItemName: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#0f172a'
-  },
-  cartItemCode: {
-    fontSize: 9,
-    fontFamily: 'monospace',
-    color: '#64748b',
-    marginTop: 1
-  },
-  qtyControl: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 6,
-    padding: 2,
-    gap: 6
-  },
-  qtyBtn: {
-    padding: 4,
-    backgroundColor: '#ffffff',
-    borderRadius: 4
-  },
-  qtyVal: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#0f172a',
-    minWidth: 16,
-    textAlign: 'center'
-  },
-  totalsBox: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#cbd5e1',
-    gap: 4
-  },
-  totalLine: {
-    flexDirection: 'row',
-    justifyContent: 'space-between'
-  },
-  totalLineLabel: {
-    fontSize: 10,
-    color: '#64748b'
-  },
-  totalLineVal: {
-    fontSize: 10,
-    fontFamily: 'monospace',
-    color: '#0f172a'
-  },
-  grandTotalLine: {
-    borderTopWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingTop: 6,
-    marginTop: 4
-  },
-  grandTotalText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#0f172a'
-  },
-  grandTotalValText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0058be',
-    fontFamily: 'monospace'
-  },
+  qtyBtn: { padding: 4, backgroundColor: '#ffffff', borderRadius: 4 },
+  qtyNum: { fontSize: 11, fontWeight: '700', color: '#0f172a', minWidth: 16, textAlign: 'center' },
+
+  totals: { gap: 4, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  totalLbl: { fontSize: 10, color: '#64748b' },
+  totalVal: { fontSize: 10, fontFamily: 'monospace', color: '#0f172a' },
+  grandTotalRow: { paddingTop: 8, borderTopWidth: 1, borderTopColor: '#e2e8f0', marginTop: 4 },
+  grandLbl: { fontSize: 12, fontWeight: '800', color: '#0f172a' },
+  grandVal: { fontSize: 16, fontWeight: '800', color: '#0058be', fontFamily: 'monospace' },
   payBtn: {
-    backgroundColor: '#0058be',
-    borderRadius: 8,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 10
+    backgroundColor: '#0058be', borderRadius: 8, paddingVertical: 12,
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 6
   },
-  payBtnText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '800'
-  }
+  payBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '800' }
 });
