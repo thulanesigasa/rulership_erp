@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "dev:full": "concurrently \"vite\" \"node server/index.js\"",
+    "dev": "concurrently \"vite --port 3000 --host\" \"node server/index.js\"",
+    "dev:full": "concurrently \"vite --port 3000 --host\" \"node server/index.js\"",
     "dev:mobile": "npm --prefix app run dev",
     "build": "vite build",
     "preview": "vite preview"
