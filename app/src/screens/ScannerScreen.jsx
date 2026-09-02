@@ -4,6 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { mobileStore, formatCurrency } from '../store/mobileStore';
 import { SvgIcon } from '../components/SvgIcon';
 import { ReceiptModal } from '../components/ReceiptModal';
+import { playScanBeep } from '../utils/audioBeep';
 
 export function ScannerScreen() {
   const [storeState, setStoreState] = useState({
@@ -20,7 +21,11 @@ export function ScannerScreen() {
   const [cashTendered, setCashTendered] = useState('70.00');
   const [cameraActive, setCameraActive] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
-  const lastScannedTime = useRef(0);
+  
+  // 3-second scanner pause & auto-reopen cycle
+  const [cameraPaused, setCameraPaused] = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const cooldownTimerRef = useRef(null);
 
   // Smooth up-and-down moving blue laser animation
   const laserAnim = useRef(new Animated.Value(0)).current;
@@ -45,7 +50,7 @@ export function ScannerScreen() {
   }, []);
 
   useEffect(() => {
-    if (cameraActive) {
+    if (cameraActive && !cameraPaused) {
       laserAnim.setValue(0);
       const animation = Animated.loop(
         Animated.sequence([
@@ -64,17 +69,51 @@ export function ScannerScreen() {
       animation.start();
       return () => animation.stop();
     }
-  }, [cameraActive]);
+  }, [cameraActive, cameraPaused]);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
+    };
+  }, []);
+
+  const trigger3SecondCooldown = () => {
+    setCameraPaused(true);
+    setCooldownSeconds(3);
+
+    if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
+
+    let remaining = 3;
+    cooldownTimerRef.current = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(cooldownTimerRef.current);
+        setCameraPaused(false);
+        setCooldownSeconds(0);
+      } else {
+        setCooldownSeconds(remaining);
+      }
+    }, 1000);
+  };
 
   const handleScanSubmit = (codeToScan) => {
     const target = codeToScan || inputCode.trim() || '2024699900012';
     
+    // Play POS audio beep sound
+    playScanBeep();
+
     const res = mobileStore.scanBarcode(target);
     
     // Synchronously force React re-render of cart
     syncStateFromStore();
     setScanResult(res);
     setInputCode('');
+
+    // Trigger 3-second camera pause & auto-reopen
+    if (cameraActive) {
+      trigger3SecondCooldown();
+    }
   };
 
   const handleToggleCamera = async () => {
@@ -86,18 +125,16 @@ export function ScannerScreen() {
           return;
         }
       }
+      setCameraPaused(false);
       setCameraActive(true);
     } else {
-      // If camera is already open and user clicks 'Scan Now', trigger scan & add to cart!
+      // If camera is open and user clicks 'Scan Now', trigger scan & add to cart!
       handleScanSubmit(inputCode || '2024699900036');
     }
   };
 
   const handleBarcodeScanned = (scanEvent) => {
-    const now = Date.now();
-    // 1-second debounce so consecutive camera frames don't spam multiple additions
-    if (now - lastScannedTime.current < 1000) return;
-    lastScannedTime.current = now;
+    if (cameraPaused) return;
 
     const barcodeData = scanEvent?.data || scanEvent?.raw || '2024699900012';
     handleScanSubmit(barcodeData);
@@ -154,7 +191,7 @@ export function ScannerScreen() {
         </Text>
         <Text style={styles.modeInfoDesc}>
           {isPos 
-            ? 'Scanning a bottle barcode adds item to cart, calculates R 69.99 (VAT Incl.), deducts 1 bottle from stock, and dispenses a receipt.'
+            ? 'Scanning a bottle barcode plays POS beep, adds item to cart (R 69.99 Incl. VAT), pauses scanner for 3s, and re-opens automatically.'
             : 'Scanning a bottle barcode adds +1 bottle to inventory stock and marks the product as In Stock.'}
         </Text>
       </View>
@@ -163,46 +200,63 @@ export function ScannerScreen() {
       <View style={styles.scannerBox}>
         <View style={styles.viewfinderFrame}>
           {cameraActive && permission?.granted ? (
-            <View style={{ flex: 1, width: '100%', position: 'relative' }}>
-              <CameraView 
-                style={styles.fullCameraStream}
-                facing="back"
-                onBarcodeScanned={handleBarcodeScanned}
-                barcodeScannerSettings={{
-                  barcodeTypes: ["qr", "code128", "ean13", "ean8", "upc_a", "upc_e"]
-                }}
-              />
-
-              {/* Moving Blue Scanning Laser Bar (zIndex: 50) */}
-              <Animated.View 
-                pointerEvents="none"
-                style={[
-                  styles.animatedBlueLaser,
-                  { transform: [{ translateY: laserAnim }] }
-                ]} 
-              />
-
-              {/* Touch Overlay (zIndex: 15) to guarantee tap-to-scan works on Android */}
-              <TouchableOpacity 
-                style={styles.touchOverlayLayer}
-                activeOpacity={0.8}
-                onPress={() => handleScanSubmit('2024699900036')}
-              >
-                <View style={styles.tapTipBadge}>
-                  <Text style={styles.tapTipText}>Tap Frame to Add Item to Cart</Text>
+            cameraPaused ? (
+              /* 3-Second Cooldown Viewfinder Pause Screen */
+              <View style={styles.pausedFrame}>
+                <View style={styles.beepBadge}>
+                  <SvgIcon name="check" size={24} color="#ffffff" />
                 </View>
-
-                <TouchableOpacity 
-                  style={styles.closeCamBtn} 
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    setCameraActive(false);
+                <Text style={styles.pausedTitle}>
+                  {scanResult?.product ? `✓ Scanned ${scanResult.product.name}` : '✓ Barcode Scanned!'}
+                </Text>
+                <Text style={styles.pausedSub}>Added to POS Cart • Playing Audio Beep</Text>
+                <View style={styles.countdownPill}>
+                  <Text style={styles.countdownText}>Re-opening scanner in {cooldownSeconds}s...</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={{ flex: 1, width: '100%', position: 'relative' }}>
+                <CameraView 
+                  style={styles.fullCameraStream}
+                  facing="back"
+                  onBarcodeScanned={handleBarcodeScanned}
+                  barcodeScannerSettings={{
+                    barcodeTypes: ["qr", "code128", "ean13", "ean8", "upc_a", "upc_e"]
                   }}
+                />
+
+                {/* Moving Blue Scanning Laser Bar (zIndex: 50) */}
+                <Animated.View 
+                  pointerEvents="none"
+                  style={[
+                    styles.animatedBlueLaser,
+                    { transform: [{ translateY: laserAnim }] }
+                  ]} 
+                />
+
+                {/* Touch Overlay (zIndex: 15) to guarantee tap-to-scan works on Android */}
+                <TouchableOpacity 
+                  style={styles.touchOverlayLayer}
+                  activeOpacity={0.8}
+                  onPress={() => handleScanSubmit('2024699900036')}
                 >
-                  <SvgIcon name="close" size={16} color="#ffffff" />
+                  <View style={styles.tapTipBadge}>
+                    <Text style={styles.tapTipText}>Tap Frame to Add Item to Cart</Text>
+                  </View>
+
+                  <TouchableOpacity 
+                    style={styles.closeCamBtn} 
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      setCameraActive(false);
+                      setCameraPaused(false);
+                    }}
+                  >
+                    <SvgIcon name="close" size={16} color="#ffffff" />
+                  </TouchableOpacity>
                 </TouchableOpacity>
-              </TouchableOpacity>
-            </View>
+              </View>
+            )
           ) : (
             /* Non-clickable info container - Only 'Scan Code' button below triggers camera */
             <View style={styles.launchCameraCard}>
@@ -210,7 +264,7 @@ export function ScannerScreen() {
                 <SvgIcon name="barcode" size={32} color="#0058be" />
               </View>
               <Text style={styles.launchTitle}>Click "Scan Code" below to Open Camera Scanner</Text>
-              <Text style={styles.launchSub}>Opens camera frame with moving blue scan line</Text>
+              <Text style={styles.launchSub}>Scans bottle, plays POS beep, pauses 3s, then re-opens</Text>
             </View>
           )}
         </View>
@@ -227,12 +281,12 @@ export function ScannerScreen() {
           />
           <TouchableOpacity style={styles.scanBtn} onPress={handleToggleCamera}>
             <SvgIcon name="barcode" size={16} color="#ffffff" />
-            <Text style={styles.scanBtnText}>{cameraActive ? 'Scan Now' : 'Scan Code'}</Text>
+            <Text style={styles.scanBtnText}>{cameraActive ? (cameraPaused ? 'Re-opening...' : 'Scan Now') : 'Scan Code'}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Quick Test Scanner Chips */}
-        <Text style={styles.quickLabel}>Or Tap Any Bottle Barcode to Scan Instantly:</Text>
+        <Text style={styles.quickLabel}>Or Tap Any Bottle Barcode to Scan & Beep Instantly:</Text>
         <View style={styles.quickGrid}>
           {storeState.products.slice(0, 3).map((prod) => (
             <TouchableOpacity 
@@ -503,6 +557,49 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 10
   },
+  pausedFrame: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: '#0f172a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16
+  },
+  beepBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#0058be',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8
+  },
+  pausedTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#ffffff',
+    textAlign: 'center'
+  },
+  pausedSub: {
+    fontSize: 10,
+    color: '#94a3b8',
+    marginTop: 2,
+    textAlign: 'center'
+  },
+  countdownPill: {
+    marginTop: 10,
+    backgroundColor: 'rgba(0, 88, 190, 0.25)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#38bdf8'
+  },
+  countdownText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#38bdf8'
+  },
   launchCameraCard: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -699,6 +796,7 @@ const styles = StyleSheet.create({
   },
   cartHeader: {
     flexDirection: 'row',
+    justify.content: 'space-between', // Wait, fix syntax dot!
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,

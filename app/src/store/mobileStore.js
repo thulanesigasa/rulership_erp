@@ -4,89 +4,12 @@
  * 2L Detergent Line @ R 69.99 (15% SARS VAT Inclusive)
  */
 
+import { BARCODE_DATABASE, lookupBarcode } from './barcodeDatabase';
+
 export function formatCurrency(amount) {
   const val = parseFloat(amount) || 0;
   return `R ${val.toFixed(2)}`;
 }
-
-// Detergent Catalog Target Barcodes:
-// Pine Gel: 2024699900012 / 2024699900018 / DET-PINE-2L
-// Dish Washing: 2024699900029 / 2024699900025 / DET-DWL-2L
-// Multi-Purpose: 2024699900036 / 2024699900032 / DET-MPC-2L
-export const initialDetergents = [
-  {
-    id: 'det-1',
-    sku: 'DET-PINE-2L',
-    barcode: '2024699900012',
-    legacyBarcode: '2024699900018',
-    name: '2L Pine Gel Concentrated Cleaner',
-    category: 'Pine Gels',
-    price: 69.99,
-    unit: 'bottle',
-    stock: 12, // 12 Pine Gel
-    status: 'In Stock'
-  },
-  {
-    id: 'det-2',
-    sku: 'DET-DWL-2L',
-    barcode: '2024699900029',
-    legacyBarcode: '2024699900025',
-    name: '2L Dish Washing Liquid',
-    category: 'Dishwashing',
-    price: 69.99,
-    unit: 'bottle',
-    stock: 11, // 11 Dish Washing Liquid
-    status: 'In Stock'
-  },
-  {
-    id: 'det-3',
-    sku: 'DET-MPC-2L',
-    barcode: '2024699900036',
-    legacyBarcode: '2024699900032',
-    name: '2L Multi-Purpose Surface Cleaner',
-    category: 'Surface Cleaners',
-    price: 69.99,
-    unit: 'bottle',
-    stock: 13, // 13 Multi-Purpose Surface Cleaner
-    status: 'In Stock'
-  },
-  {
-    id: 'det-4',
-    sku: 'DET-BLC-2L',
-    barcode: '2024699900043',
-    legacyBarcode: '2024699900049',
-    name: '2L Thick Hygiene Bleach',
-    category: 'Bleach & Hygiene',
-    price: 69.99,
-    unit: 'bottle',
-    stock: 0,
-    status: 'Out of Stock'
-  },
-  {
-    id: 'det-5',
-    sku: 'DET-CAR-2L',
-    barcode: '2024699900050',
-    legacyBarcode: '2024699900056',
-    name: '2L High-Foam Car Shampoo',
-    category: 'Auto Care',
-    price: 69.99,
-    unit: 'bottle',
-    stock: 0,
-    status: 'Out of Stock'
-  },
-  {
-    id: 'det-6',
-    sku: 'DET-SOFT-2L',
-    barcode: '2024699900067',
-    legacyBarcode: '2024699900063',
-    name: '2L Fabric Softener Spring Fresh',
-    category: 'Laundry',
-    price: 69.99,
-    unit: 'bottle',
-    stock: 0,
-    status: 'Out of Stock'
-  }
-];
 
 export const initialStaffRoster = [
   { id: 'stf-1', name: 'NG. Motloung', role: 'Managing Director', shift: 'Full Day (07:00 - 17:00)', hours: 45, status: 'On Duty', phone: '+27 82 491 0022' },
@@ -99,7 +22,7 @@ class MobileStore {
     this.companyName = 'Rulership LTD PTY';
     this.facility = 'Sakhile, Ext7';
     this.vatRate = 0.15; // 15% South African VAT (Inclusive)
-    this.products = [...initialDetergents];
+    this.products = [...BARCODE_DATABASE];
     this.staffRoster = [...initialStaffRoster];
     this.cart = [];
     this.scanMode = 'pos'; // 'pos' (checkout -stock) or 'restock' (add product +stock)
@@ -144,29 +67,23 @@ class MobileStore {
   }
 
   scanBarcode(code) {
-    const raw = String(code || '').trim();
-    const query = raw.toLowerCase();
-
-    // Match barcode numbers, SKUs, or names
-    let prod = this.products.find(p => 
-      p.barcode.toLowerCase() === query || 
-      (p.legacyBarcode && p.legacyBarcode.toLowerCase() === query) ||
-      p.sku.toLowerCase() === query || 
-      query.includes(p.barcode.toLowerCase()) ||
-      (p.legacyBarcode && query.includes(p.legacyBarcode.toLowerCase())) ||
-      query.includes(p.sku.toLowerCase()) ||
-      p.name.toLowerCase().includes(query)
-    );
-
-    // Default fallback matching if unknown text is passed
+    const matchedRecord = lookupBarcode(code);
+    
+    let prod = null;
+    if (matchedRecord) {
+      prod = this.products.find(p => p.id === matchedRecord.id);
+    }
+    
+    // Fallback if unknown code passed
     if (!prod) {
-      if (query.includes('dwl') || query.includes('25') || query.includes('29')) prod = this.products[1];
-      else if (query.includes('mpc') || query.includes('32') || query.includes('36')) prod = this.products[2];
+      const q = String(code || '').toLowerCase();
+      if (q.includes('dwl') || q.includes('25') || q.includes('29')) prod = this.products[1];
+      else if (q.includes('mpc') || q.includes('32') || q.includes('36')) prod = this.products[2];
       else prod = this.products[0];
     }
 
     if (prod.stock <= 0) {
-      prod.stock = 100; // Auto-replenish stock for demo
+      prod.stock = 100; // Replenish stock for demo
       prod.status = 'In Stock';
     }
     
@@ -178,7 +95,7 @@ class MobileStore {
       if (prod.stock <= 0) prod.status = 'Out of Stock';
     }
 
-    // Always add item to cart
+    // Always push item to cart in POS Payment Mode
     const existingCartItem = this.cart.find(c => c.productId === prod.id);
     if (existingCartItem) {
       existingCartItem.qty += 1;
@@ -201,7 +118,7 @@ class MobileStore {
     };
     this.scanLog.unshift(logEntry);
     this.notify();
-    return { success: true, message: `Scanned ${prod.name} (R 69.99). Cart updated!`, product: prod };
+    return { success: true, message: `Scanned ${prod.name} (R 69.99). Added to cart!`, product: prod };
   }
 
   updateCartQty(productId, delta) {
