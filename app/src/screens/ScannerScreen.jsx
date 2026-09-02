@@ -9,7 +9,7 @@ import { SvgIcon } from '../components/SvgIcon';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { playScanBeep } from '../utils/audioBeep';
 
-const FRAME_HEIGHT = 240; // Camera frame embedded in screen
+const FRAME_HEIGHT = 280; // Camera frame embedded in screen
 
 export function ScannerScreen() {
   const [storeState, setStoreState] = useState({
@@ -179,7 +179,7 @@ export function ScannerScreen() {
                 <>
                   {/* Live camera fills the frame */}
                   <CameraView
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, zIndex: 1 }}
                     facing="back"
                     onBarcodeScanned={cooldownSeconds > 0 ? undefined : onBarcodeRead}
                     barcodeScannerSettings={{
@@ -187,8 +187,11 @@ export function ScannerScreen() {
                     }}
                   />
 
-                  {/* Overlays — pointerEvents none so camera gets all native events */}
-                  <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+                  {/* Overlays — elevation+zIndex above native CameraView surface on Android */}
+                  <View
+                    style={[StyleSheet.absoluteFillObject, { zIndex: 20, elevation: 20 }]}
+                    pointerEvents="none"
+                  >
                     {/* Scanning laser sweeping top → bottom */}
                     <Animated.View style={[styles.laser, { transform: [{ translateY: laserAnim }] }]} />
 
@@ -415,12 +418,13 @@ const styles = StyleSheet.create({
   // Inline camera card
   cameraCard: {
     backgroundColor: '#0f172a', borderRadius: 14,
-    overflow: 'hidden', borderWidth: 1, borderColor: '#1e293b'
+    borderWidth: 1, borderColor: '#1e293b'
+    // NOTE: no overflow:hidden — it clips absolutely-positioned corner marks
   },
   cameraFrameOuter: { gap: 0 },
   cameraFrame: {
     height: FRAME_HEIGHT, backgroundColor: '#0a1628',
-    overflow: 'hidden', position: 'relative'
+    position: 'relative', borderRadius: 14, overflow: 'hidden'
   },
 
   // Tap-to-open idle state
