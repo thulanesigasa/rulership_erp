@@ -161,9 +161,9 @@ export function ScannerScreen() {
             <View style={styles.cameraFrame}>
               {cameraActive ? (
                 <>
-                  {/* Live camera fills the frame. */}
+                  {/* Live camera fills the frame. Explicit width & height ensures native preview surface renders on Android */}
                   <CameraView
-                    style={StyleSheet.absoluteFillObject}
+                    style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
                     facing="back"
                     onBarcodeScanned={isProcessing.current ? undefined : onBarcodeRead}
                     barcodeScannerSettings={{
@@ -173,7 +173,7 @@ export function ScannerScreen() {
                   
                   {/* Overlays */}
                   <View
-                    style={[StyleSheet.absoluteFillObject, { backgroundColor: 'transparent' }]}
+                    style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 10, elevation: 10 }}
                     pointerEvents="none"
                   >
                     {/* Scanning laser sweeping top → bottom */}
@@ -421,8 +421,8 @@ const styles = StyleSheet.create({
   corner: { position: 'absolute', width: 20, height: 20, borderColor: '#38bdf8' },
   cTL: { top: 16, left: 16, borderTopWidth: 2.5, borderLeftWidth: 2.5 },
   cTR: { top: 16, right: 16, borderTopWidth: 2.5, borderRightWidth: 2.5 },
-  cBL: { bottom: 16, left: 16, borderBottomWidth: 2.5, borderLeftWidth: 2.5 },
-  cBR: { bottom: 16, right: 16, borderBottomWidth: 2.5, borderRightWidth: 2.5 },
+  cBL: { top: FRAME_HEIGHT - 36, left: 16, borderBottomWidth: 2.5, borderLeftWidth: 2.5 },
+  cBR: { top: FRAME_HEIGHT - 36, right: 16, borderBottomWidth: 2.5, borderRightWidth: 2.5 },
 
 
 
