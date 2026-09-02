@@ -5,15 +5,16 @@
 
 import { Vibration, Platform } from 'react-native';
 
-export async function playScanBeep() {
+export function playScanBeep() {
   try {
     // 1. Always trigger haptic vibration on mobile
     if (Platform.OS !== 'web') {
       Vibration.vibrate(60);
+      return;
     }
 
     // 2. Web Audio API for Web browser
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    if (typeof window !== 'undefined') {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (AudioCtx) {
         const ctx = new AudioCtx();
@@ -28,8 +29,7 @@ export async function playScanBeep() {
         osc.start();
         osc.stop(ctx.currentTime + 0.15);
       }
-    // Mobile uses Haptic Vibration feedback which is natively supported everywhere in React Native
-    return;
+    }
   } catch (e) {
     // Fallback guard
   }
