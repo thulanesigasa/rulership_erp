@@ -177,7 +177,7 @@ export function ScannerScreen() {
             <View style={styles.cameraFrame}>
               {cameraActive ? (
                 <>
-                  {/* Live camera fills the frame */}
+                  {/* Live camera fills the frame. Overlays are children to ensure they render on top on Android */}
                   <CameraView
                     style={{ flex: 1, zIndex: 1 }}
                     facing="back"
@@ -185,37 +185,37 @@ export function ScannerScreen() {
                     barcodeScannerSettings={{
                       barcodeTypes: ['qr', 'code128', 'ean13', 'ean8', 'upc_a', 'upc_e']
                     }}
-                  />
-
-                  {/* Overlays — elevation+zIndex above native CameraView surface on Android */}
-                  <View
-                    style={[StyleSheet.absoluteFillObject, { zIndex: 20, elevation: 20 }]}
-                    pointerEvents="none"
                   >
-                    {/* Scanning laser sweeping top → bottom */}
-                    <Animated.View style={[styles.laser, { transform: [{ translateY: laserAnim }] }]} />
+                    {/* Overlays — pointerEvents none so camera gets all native events */}
+                    <View
+                      style={StyleSheet.absoluteFillObject}
+                      pointerEvents="none"
+                    >
+                      {/* Scanning laser sweeping top → bottom */}
+                      <Animated.View style={[styles.laser, { transform: [{ translateY: laserAnim }] }]} />
 
-                    {/* Corner reticle marks */}
-                    <View style={[styles.corner, styles.cTL]} />
-                    <View style={[styles.corner, styles.cTR]} />
-                    <View style={[styles.corner, styles.cBL]} />
-                    <View style={[styles.corner, styles.cBR]} />
+                      {/* Corner reticle marks */}
+                      <View style={[styles.corner, styles.cTL]} />
+                      <View style={[styles.corner, styles.cTR]} />
+                      <View style={[styles.corner, styles.cBL]} />
+                      <View style={[styles.corner, styles.cBR]} />
 
-                    {/* 3-second countdown overlay after successful scan */}
-                    {cooldownSeconds > 0 && (
-                      <View style={styles.cooldownOverlay}>
-                        <View style={styles.cooldownBadge}>
-                          <SvgIcon name="check" size={20} color="#fff" />
+                      {/* 3-second countdown overlay after successful scan */}
+                      {cooldownSeconds > 0 && (
+                        <View style={styles.cooldownOverlay}>
+                          <View style={styles.cooldownBadge}>
+                            <SvgIcon name="check" size={20} color="#fff" />
+                          </View>
+                          <Text style={styles.cooldownLabel}>
+                            {scanResult?.product?.name ?? 'Scanned!'}
+                          </Text>
+                          <View style={styles.cooldownPill}>
+                            <Text style={styles.cooldownPillText}>Next scan in {cooldownSeconds}s</Text>
+                          </View>
                         </View>
-                        <Text style={styles.cooldownLabel}>
-                          {scanResult?.product?.name ?? 'Scanned!'}
-                        </Text>
-                        <View style={styles.cooldownPill}>
-                          <Text style={styles.cooldownPillText}>Next scan in {cooldownSeconds}s</Text>
-                        </View>
-                      </View>
-                    )}
-                  </View>
+                      )}
+                    </View>
+                  </CameraView>
                 </>
               ) : (
                 /* Camera closed — tap to open */
