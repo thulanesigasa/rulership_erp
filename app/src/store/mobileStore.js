@@ -6,6 +6,30 @@
 
 import { BARCODE_DATABASE, lookupBarcode } from './barcodeDatabase';
 
+import Constants from 'expo-constants';
+
+function getApiUrl() {
+  const hostUri = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
+  if (hostUri) {
+    const ip = hostUri.split(':')[0];
+    return `http://${ip}:3001/api/inventory`;
+  }
+  return 'http://localhost:3001/api/inventory';
+}
+
+async function syncStockToServer(id, delta) {
+  try {
+    const url = `${getApiUrl()}/stock`;
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, delta })
+    });
+  } catch (e) {
+    // API server offline or unreachable
+  }
+}
+
 export function formatCurrency(amount) {
   const val = parseFloat(amount) || 0;
   return `R ${val.toFixed(2)}`;
@@ -83,10 +107,12 @@ class MobileStore {
       };
     }
 
+    let delta = 0;
     if (this.scanMode === 'restock') {
       // Restock mode: only increase stock
       prod.stock += 1;
       prod.status = 'In Stock';
+      delta = 1;
     } else {
       // POS Payment mode: decrease stock AND add to cart
       if (prod.stock <= 0) {
@@ -95,6 +121,7 @@ class MobileStore {
       }
       prod.stock -= 1;
       if (prod.stock <= 0) prod.status = 'Out of Stock';
+      delta = -1;
 
       // Add to cart ONLY in POS mode
       const existingCartItem = this.cart.find(c => c.productId === prod.id);
@@ -111,6 +138,9 @@ class MobileStore {
         });
       }
     }
+
+    // Push live stock update to API server for web synchronization
+    syncStockToServer(prod.id, delta);
 
     const logEntry = {
       id: Date.now(),

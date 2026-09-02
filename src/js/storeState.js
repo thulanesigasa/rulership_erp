@@ -18,11 +18,11 @@ const initialDetergents = [
     category: 'Pine Gels',
     price: 69.99,
     unit: 'bottle',
-    totalStock: 650,
+    totalStock: 12,
     minStock: 80,
     status: 'In Stock',
     supplier: 'Rulership Chemical Works',
-    branchStock: { 'Sakhile, Ext7': 650 }
+    branchStock: { 'Sakhile, Ext7': 12 }
   },
   {
     id: 'det-2',
@@ -32,11 +32,11 @@ const initialDetergents = [
     category: 'Dishwashing',
     price: 69.99,
     unit: 'bottle',
-    totalStock: 840,
+    totalStock: 11,
     minStock: 100,
     status: 'In Stock',
     supplier: 'Rulership Chemical Works',
-    branchStock: { 'Sakhile, Ext7': 840 }
+    branchStock: { 'Sakhile, Ext7': 11 }
   },
   {
     id: 'det-3',
@@ -46,11 +46,11 @@ const initialDetergents = [
     category: 'Surface Cleaners',
     price: 69.99,
     unit: 'bottle',
-    totalStock: 520,
+    totalStock: 13,
     minStock: 50,
     status: 'In Stock',
     supplier: 'Rulership Chemical Works',
-    branchStock: { 'Sakhile, Ext7': 520 }
+    branchStock: { 'Sakhile, Ext7': 13 }
   },
   {
     id: 'det-4',
@@ -350,3 +350,29 @@ export function addStaffMember(newStaff) {
   closeModal();
   notify();
 }
+
+export async function syncWebWithServer() {
+  try {
+    const res = await fetch('http://localhost:3001/api/inventory');
+    if (res.ok) {
+      const data = await res.json();
+      let changed = false;
+      data.forEach(item => {
+        const prod = state.detergents.find(d => d.id === item.id);
+        if (prod && prod.totalStock !== item.totalStock) {
+          prod.totalStock = item.totalStock;
+          prod.status = item.status;
+          prod.branchStock = { 'Sakhile, Ext7': item.totalStock };
+          changed = true;
+        }
+      });
+      if (changed) notify();
+    }
+  } catch (e) {
+    // API server offline or not running
+  }
+}
+
+// Initial sync and poll every 1.5 seconds for live real-time sync with mobile app
+syncWebWithServer();
+setInterval(syncWebWithServer, 1500);
