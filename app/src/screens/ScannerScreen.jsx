@@ -796,7 +796,6 @@ const styles = StyleSheet.create({
   },
   cartHeader: {
     flexDirection: 'row',
-    justify.content: 'space-between', // Wait, fix syntax dot!
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
