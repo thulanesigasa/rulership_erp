@@ -82,7 +82,7 @@ export function renderDashboardView() {
               <span class="font-mono text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">2L Bottles Dispensed</span>
               ${getIcon('box', 'svg-icon-sm text-[#0284c7]')}
             </div>
-            <div class="font-heading font-extrabold text-2xl text-on-surface">${state.detergents.reduce((acc, d) => acc + (d.totalStock || 0), 0).toLocaleString('en-ZA')} units</div>
+            <div class="font-heading font-extrabold text-2xl text-on-surface">${state.products.reduce((acc, d) => acc + (d.totalStock || 0), 0).toLocaleString('en-ZA')} units</div>
           </div>
           <div class="mt-4 flex items-center justify-between text-xs">
             <span class="text-[#0284c7] font-semibold text-[11px]">R 69.99 Standard Price</span>
