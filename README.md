@@ -54,6 +54,8 @@ inventorymanagementsystem/
 │   │   └── views/                   # Dashboard, Inventory, POS, & Settings views
 ├── dist/                            # Web production build bundle
 ├── public/                          # Static public web assets
+│   ├── labels/                      # Validated barcode SVGs (DET-MPC-2L, etc.)
+│   └── templates/                   # Invoice & thermal receipt templates
 ├── .gitignore                       # Root Git ignore rules
 ├── index.html                       # Web ERP HTML entrypoint
 ├── package.json                     # Web ERP dependencies & npm scripts
