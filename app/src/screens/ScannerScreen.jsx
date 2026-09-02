@@ -27,10 +27,8 @@ export function ScannerScreen() {
   const [cameraActive, setCameraActive] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
 
-  // Cooldown — ref so onBarcodeScanned always reads current value (no stale closure)
-  const [cooldownSeconds, setCooldownSeconds] = useState(0);
-  const isCoolingDown = useRef(false);
-  const cooldownInterval = useRef(null);
+  // Processing guard to prevent double scans
+  const isProcessing = useRef(false);
 
   // Laser animation within the inline frame
   const laserAnim = useRef(new Animated.Value(0)).current;
@@ -53,19 +51,19 @@ export function ScannerScreen() {
     return () => unsub();
   }, []);
 
-  // Laser runs when camera is active and not in cooldown
+  // Laser runs when camera is active
   useEffect(() => {
     if (laserLoop.current) {
       laserLoop.current.stop();
       laserLoop.current = null;
     }
-    if (cameraActive && cooldownSeconds === 0) {
+    if (cameraActive) {
       laserAnim.setValue(0);
       const travel = FRAME_HEIGHT - 6;
       laserLoop.current = Animated.loop(
         Animated.sequence([
-          Animated.timing(laserAnim, { toValue: travel, duration: 1600, useNativeDriver: true }),
-          Animated.timing(laserAnim, { toValue: 0, duration: 1600, useNativeDriver: true })
+          Animated.timing(laserAnim, { toValue: travel, duration: 1600, useNativeDriver: false }),
+          Animated.timing(laserAnim, { toValue: 0, duration: 1600, useNativeDriver: false })
         ])
       );
       laserLoop.current.start();
@@ -73,23 +71,7 @@ export function ScannerScreen() {
     return () => {
       if (laserLoop.current) laserLoop.current.stop();
     };
-  }, [cameraActive, cooldownSeconds]);
-
-  const startCooldown = () => {
-    isCoolingDown.current = true;
-    setCooldownSeconds(3);
-    let remaining = 3;
-    if (cooldownInterval.current) clearInterval(cooldownInterval.current);
-    cooldownInterval.current = setInterval(() => {
-      remaining -= 1;
-      setCooldownSeconds(remaining);
-      if (remaining <= 0) {
-        clearInterval(cooldownInterval.current);
-        cooldownInterval.current = null;
-        isCoolingDown.current = false;
-      }
-    }, 1000);
-  };
+  }, [cameraActive]);
 
   const processCode = (rawCode) => {
     if (!rawCode || !rawCode.trim()) return;
@@ -98,14 +80,20 @@ export function ScannerScreen() {
     const res = mobileStore.scanBarcode(code);
     syncState();
     setScanResult(res);
+    
+    // Immediately close camera on successful scan (as requested)
     if (cameraActive && res.success) {
-      startCooldown();
+      setTimeout(() => {
+        closeCamera();
+      }, 300); // Slight delay so user hears beep and sees success before it snaps shut
     }
+    isProcessing.current = false;
   };
 
-  // onBarcodeScanned fires from CameraView — use ref guard (no stale closure)
+  // onBarcodeScanned fires from CameraView
   const onBarcodeRead = ({ data }) => {
-    if (isCoolingDown.current || !data) return;
+    if (isProcessing.current || !data) return;
+    isProcessing.current = true;
     processCode(data);
   };
 
@@ -117,16 +105,12 @@ export function ScannerScreen() {
         return;
       }
     }
-    isCoolingDown.current = false;
-    setCooldownSeconds(0);
+    isProcessing.current = false;
     setCameraActive(true);
   };
 
   const closeCamera = () => {
-    if (cooldownInterval.current) clearInterval(cooldownInterval.current);
-    cooldownInterval.current = null;
-    isCoolingDown.current = false;
-    setCooldownSeconds(0);
+    isProcessing.current = false;
     setCameraActive(false);
   };
 
@@ -179,17 +163,17 @@ export function ScannerScreen() {
                 <>
                   {/* Live camera fills the frame. */}
                   <CameraView
-                    style={{ flex: 1, zIndex: 1 }}
+                    style={StyleSheet.absoluteFillObject}
                     facing="back"
-                    onBarcodeScanned={cooldownSeconds > 0 ? undefined : onBarcodeRead}
+                    onBarcodeScanned={isProcessing.current ? undefined : onBarcodeRead}
                     barcodeScannerSettings={{
                       barcodeTypes: ['qr', 'code128', 'ean13', 'ean8', 'upc_a', 'upc_e']
                     }}
                   />
                   
-                  {/* Overlays — sibling with absolute positioning to render over CameraView (Expo requirement) */}
+                  {/* Overlays */}
                   <View
-                    style={[StyleSheet.absoluteFillObject, { zIndex: 10, elevation: 10 }]}
+                    style={[StyleSheet.absoluteFillObject, { backgroundColor: 'transparent' }]}
                     pointerEvents="none"
                   >
                     {/* Scanning laser sweeping top → bottom */}
@@ -200,21 +184,6 @@ export function ScannerScreen() {
                     <View style={[styles.corner, styles.cTR]} />
                     <View style={[styles.corner, styles.cBL]} />
                     <View style={[styles.corner, styles.cBR]} />
-
-                    {/* 3-second countdown overlay after successful scan */}
-                    {cooldownSeconds > 0 && (
-                      <View style={styles.cooldownOverlay}>
-                        <View style={styles.cooldownBadge}>
-                          <SvgIcon name="check" size={20} color="#fff" />
-                        </View>
-                        <Text style={styles.cooldownLabel}>
-                          {scanResult?.product?.name ?? 'Scanned!'}
-                        </Text>
-                        <View style={styles.cooldownPill}>
-                          <Text style={styles.cooldownPillText}>Next scan in {cooldownSeconds}s</Text>
-                        </View>
-                      </View>
-                    )}
                   </View>
                 </>
               ) : (
@@ -455,22 +424,7 @@ const styles = StyleSheet.create({
   cBL: { bottom: 16, left: 16, borderBottomWidth: 2.5, borderLeftWidth: 2.5 },
   cBR: { bottom: 16, right: 16, borderBottomWidth: 2.5, borderRightWidth: 2.5 },
 
-  // Cooldown overlay inside camera frame
-  cooldownOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10,22,40,0.85)',
-    alignItems: 'center', justifyContent: 'center', gap: 8
-  },
-  cooldownBadge: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#0058be', justifyContent: 'center', alignItems: 'center'
-  },
-  cooldownLabel: { fontSize: 12, fontWeight: '700', color: '#e2e8f0', textAlign: 'center', paddingHorizontal: 20 },
-  cooldownPill: {
-    backgroundColor: 'rgba(56,189,248,0.15)', paddingHorizontal: 16,
-    paddingVertical: 5, borderRadius: 20, borderWidth: 1, borderColor: '#38bdf8'
-  },
-  cooldownPillText: { fontSize: 11, fontWeight: '800', color: '#38bdf8' },
+
 
   // Camera toolbar below frame
   cameraToolbar: {
