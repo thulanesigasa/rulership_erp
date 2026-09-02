@@ -55,7 +55,6 @@ inventorymanagementsystem/
 ├── dist/                            # Web production build bundle
 ├── public/                          # Static public web assets
 ├── .gitignore                       # Root Git ignore rules
-├── GEMINI.md                        # User customization & workflow rules
 ├── index.html                       # Web ERP HTML entrypoint
 ├── package.json                     # Web ERP dependencies & npm scripts
 └── README.md                        # Complete project architecture & documentation
@@ -79,8 +78,3 @@ npm install
 npm run dev
 ```
 Scan the Metro QR code with **Expo Go** on your physical Android or iOS device.
-
----
-
-## 📜 Customization & Compliance Rules
-Refer to [GEMINI.md](file:///d:/deployment_2026/inventorymanagementsystem/GEMINI.md) for full customization rules, auto-approval settings, GitHub PR workflow, and SVG guidelines.
