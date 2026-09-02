@@ -68,18 +68,19 @@ class MobileStore {
 
   scanBarcode(code) {
     const matchedRecord = lookupBarcode(code);
-    
+
     let prod = null;
     if (matchedRecord) {
       prod = this.products.find(p => p.id === matchedRecord.id);
     }
-    
-    // Fallback if unknown code passed
+
+    // No guessing — if barcode not in registry, return a clear failure
     if (!prod) {
-      const q = String(code || '').toLowerCase();
-      if (q.includes('dwl') || q.includes('25') || q.includes('29')) prod = this.products[1];
-      else if (q.includes('mpc') || q.includes('32') || q.includes('36')) prod = this.products[2];
-      else prod = this.products[0];
+      return {
+        success: false,
+        message: `Barcode not recognised: "${code}"\nPlease add this barcode to the product registry or use the Quick Tap buttons.`,
+        scannedRaw: code
+      };
     }
 
     if (this.scanMode === 'restock') {
