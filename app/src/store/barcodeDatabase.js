@@ -83,13 +83,18 @@ export function lookupBarcode(rawQuery) {
   if (!rawQuery) return null;
   const q = String(rawQuery).trim().toLowerCase();
 
-  return BARCODE_DATABASE.find(item => 
+  // Exact matches only — no substring/fuzzy matching to prevent cross-product false positives
+  return BARCODE_DATABASE.find(item =>
     item.barcode.toLowerCase() === q ||
     (item.legacyBarcode && item.legacyBarcode.toLowerCase() === q) ||
-    item.sku.toLowerCase() === q ||
-    q.includes(item.barcode.toLowerCase()) ||
-    (item.legacyBarcode && q.includes(item.legacyBarcode.toLowerCase())) ||
-    q.includes(item.sku.toLowerCase()) ||
-    item.name.toLowerCase().includes(q)
-  );
+    item.sku.toLowerCase() === q
+  ) || null;
+}
+
+/**
+ * Returns a human-readable label for an unrecognised barcode
+ * so the UI can tell the cashier what was scanned vs what failed.
+ */
+export function describeUnknown(rawQuery) {
+  return `Unknown barcode: "${rawQuery}" — not in product registry`;
 }
