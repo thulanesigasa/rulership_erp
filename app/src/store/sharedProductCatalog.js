@@ -45,6 +45,7 @@ export const PRODUCT_CATALOG = [
     id: 'det-3',
     sku: 'DET-MPC-2L',
     barcode: '2024699900032',
+    aliases: ['8142519014016'], // The real encoded value of the placeholder SVG bars
     name: '2L Multi-Purpose Surface Cleaner',
     category: 'Surface Cleaners',
     price: 69.99,
@@ -101,11 +102,14 @@ export const PRODUCT_CATALOG = [
  */
 export function lookupByBarcode(rawQuery) {
   if (!rawQuery) return null;
-  const q = String(rawQuery).trim().toLowerCase();
-  return PRODUCT_CATALOG.find(p =>
-    p.barcode.toLowerCase() === q ||
-    p.sku.toLowerCase() === q
-  ) || null;
+  const clean = String(rawQuery).trim();
+  return PRODUCT_CATALOG.find(p => {
+    // Check main barcode or aliases
+    if (p.barcode === clean) return true;
+    if (p.aliases && p.aliases.includes(clean)) return true;
+    if (p.sku.toLowerCase() === clean.toLowerCase()) return true;
+    return false;
+  }) || null;
 }
 
 /**
