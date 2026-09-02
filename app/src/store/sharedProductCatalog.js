@@ -23,7 +23,7 @@ export const PRODUCT_CATALOG = [
     category: 'Pine Gels',
     price: 69.99,
     unit: 'bottle',
-    initialStock: 650,
+    initialStock: 12, // User's real count
     minStock: 80,
     status: 'In Stock',
     supplier: 'Rulership Chemical Works',
@@ -36,7 +36,7 @@ export const PRODUCT_CATALOG = [
     category: 'Dishwashing',
     price: 69.99,
     unit: 'bottle',
-    initialStock: 840,
+    initialStock: 11, // User's real count
     minStock: 100,
     status: 'In Stock',
     supplier: 'Rulership Chemical Works',
@@ -49,7 +49,7 @@ export const PRODUCT_CATALOG = [
     category: 'Surface Cleaners',
     price: 69.99,
     unit: 'bottle',
-    initialStock: 520,
+    initialStock: 13, // User's real count
     minStock: 50,
     status: 'In Stock',
     supplier: 'Rulership Chemical Works',
