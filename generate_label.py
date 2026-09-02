@@ -1,4 +1,5 @@
 import xml.etree.ElementTree as ET
+import argparse
 
 def generate_svg_label(top_text, number, bottom_text, filename):
     try:
@@ -92,4 +93,12 @@ def generate_svg_label(top_text, number, bottom_text, filename):
     print(f"Label saved to {filename}")
 
 if __name__ == '__main__':
-    generate_svg_label("DET-PINE-2L", "2024699900018", "RULERSHIP LTD PTY", "label.svg")
+    parser = argparse.ArgumentParser(description='Generate a barcode label as SVG.')
+    parser.add_argument('--top-text', type=str, default="DET-PINE-2L", help='Text displayed at the top of the label')
+    parser.add_argument('--number', type=str, default="2024699900018", help='Barcode number')
+    parser.add_argument('--bottom-text', type=str, default="RULERSHIP LTD PTY", help='Text displayed at the bottom of the label')
+    parser.add_argument('--output', type=str, default="label.svg", help='Output SVG filename')
+    
+    args = parser.parse_args()
+    
+    generate_svg_label(args.top_text, args.number, args.bottom_text, args.output)
