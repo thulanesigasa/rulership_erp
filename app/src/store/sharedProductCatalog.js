@@ -19,6 +19,7 @@ export const PRODUCT_CATALOG = [
     id: 'det-1',
     sku: 'DET-PINE-2L',
     barcode: '2024699900018',
+    aliases: ['6149579015016'], // From placeholder SVG
     name: '2L Pine Gel Concentrated Cleaner',
     category: 'Pine Gels',
     price: 69.99,
@@ -32,6 +33,7 @@ export const PRODUCT_CATALOG = [
     id: 'det-2',
     sku: 'DET-DWL-2L',
     barcode: '2024699900025',
+    aliases: ['6140589914016'], // From placeholder SVG
     name: '2L Dish Washing Liquid',
     category: 'Dishwashing',
     price: 69.99,
