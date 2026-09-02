@@ -3,11 +3,16 @@
  * Plays a crisp 1800Hz POS scanner beep on successful barcode scan
  */
 
-import { Audio } from 'expo-av';
 import { Vibration, Platform } from 'react-native';
 
 export async function playScanBeep() {
   try {
+    // 1. Always trigger haptic vibration on mobile
+    if (Platform.OS !== 'web') {
+      Vibration.vibrate(60);
+    }
+
+    // 2. Web Audio API for Web browser
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (AudioCtx) {
@@ -24,19 +29,23 @@ export async function playScanBeep() {
         osc.stop(ctx.currentTime + 0.15);
       }
     } else {
-      Vibration.vibrate(60);
-      const { sound } = await Audio.Sound.createAsync(
-        require('../../assets/beep.mp3')
-      );
-      await sound.playAsync();
-      
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.didJustFinish) {
-          sound.unloadAsync();
-        }
-      });
+      // 3. Try expo-av safely if native module exists in the client build
+      try {
+        const { Audio } = require('expo-av');
+        const { sound } = await Audio.Sound.createAsync(
+          require('../../assets/beep.mp3')
+        );
+        await sound.playAsync();
+        sound.setOnPlaybackStatusUpdate((status) => {
+          if (status?.didJustFinish) {
+            sound.unloadAsync();
+          }
+        });
+      } catch (audioErr) {
+        // ExponentAV native module not present in this Expo Go binary — vibration already handled
+      }
     }
   } catch (e) {
-    console.log('Scan beep audio trigger:', e);
+    // Fallback guard
   }
 }
