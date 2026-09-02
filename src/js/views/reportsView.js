@@ -78,30 +78,20 @@ export function renderReportsView() {
               </tr>
             </thead>
             <tbody>
-              <tr class="hover:bg-surface-low/50">
-                <td class="font-bold text-on-surface">2L Dish Washing Liquid</td>
-                <td class="font-mono text-xs">840 bottles</td>
-                <td class="font-mono text-xs">${formatCurrency(69.99)}</td>
-                <td class="font-mono text-xs font-bold text-on-surface">${formatCurrency(58791.60)}</td>
-                <td class="font-mono text-xs text-[#0058be] font-semibold">${formatCurrency(8818.74)}</td>
-                <td class="font-mono text-xs text-right font-bold text-[#0284c7]">42.5%</td>
-              </tr>
-              <tr class="hover:bg-surface-low/50">
-                <td class="font-bold text-on-surface">2L Pine Gel Concentrated Cleaner</td>
-                <td class="font-mono text-xs">650 bottles</td>
-                <td class="font-mono text-xs">${formatCurrency(69.99)}</td>
-                <td class="font-mono text-xs font-bold text-on-surface">${formatCurrency(45493.50)}</td>
-                <td class="font-mono text-xs text-[#0058be] font-semibold">${formatCurrency(6824.03)}</td>
-                <td class="font-mono text-xs text-right font-bold text-[#0284c7]">40.8%</td>
-              </tr>
-              <tr class="hover:bg-surface-low/50">
-                <td class="font-bold text-on-surface">2L Multi-Purpose Surface Cleaner</td>
-                <td class="font-mono text-xs">520 bottles</td>
-                <td class="font-mono text-xs">${formatCurrency(69.99)}</td>
-                <td class="font-mono text-xs font-bold text-on-surface">${formatCurrency(36394.88)}</td>
-                <td class="font-mono text-xs text-[#0058be] font-semibold">${formatCurrency(5459.23)}</td>
-                <td class="font-mono text-xs text-right font-bold text-[#0284c7]">39.5%</td>
-              </tr>
+              ${state.detergents.map(d => {
+                const revenue = d.totalStock * d.price;
+                const vat = revenue * (state.vatRate / (1 + state.vatRate));
+                return `
+                  <tr class="hover:bg-surface-low/50">
+                    <td class="font-bold text-on-surface">${d.name}</td>
+                    <td class="font-mono text-xs">${d.totalStock} bottles</td>
+                    <td class="font-mono text-xs">${formatCurrency(d.price)}</td>
+                    <td class="font-mono text-xs font-bold text-on-surface">${formatCurrency(revenue)}</td>
+                    <td class="font-mono text-xs text-[#0058be] font-semibold">${formatCurrency(vat)}</td>
+                    <td class="font-mono text-xs text-right font-bold text-[#0284c7]">41.5%</td>
+                  </tr>
+                `;
+              }).join('')}
             </tbody>
           </table>
         </div>
