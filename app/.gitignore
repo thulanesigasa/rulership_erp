@@ -1,0 +1,14 @@
+# Node dependencies
+node_modules/
+.expo/
+
+# Build outputs
+dist/
+web-build/
+
+# Native builds
+android/
+ios/
+
+# Logs
+*.log

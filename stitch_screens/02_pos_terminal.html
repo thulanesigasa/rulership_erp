@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>High-Speed POS Interface</title>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "error-container": "#ffdad6",
+                      "surface-container-highest": "#d8e3fb",
+                      "on-tertiary": "#ffffff",
+                      "inverse-primary": "#adc6ff",
+                      "tertiary": "#b61722",
+                      "on-surface-variant": "#424754",
+                      "secondary-fixed": "#6ffbbe",
+                      "tertiary-container": "#da3437",
+                      "surface-container-low": "#f0f3ff",
+                      "primary-fixed": "#d8e2ff",
+                      "tertiary-fixed": "#ffdad7",
+                      "secondary-container": "#6cf8bb",
+                      "primary": "#0058be",
+                      "background": "#f9f9ff",
+                      "inverse-surface": "#263143",
+                      "on-secondary-fixed-variant": "#005236",
+                      "on-background": "#111c2d",
+                      "surface-bright": "#f9f9ff",
+                      "on-primary-container": "#fefcff",
+                      "on-surface": "#111c2d",
+                      "surface-dim": "#cfdaf2",
+                      "on-secondary": "#ffffff",
+                      "on-secondary-fixed": "#002113",
+                      "on-tertiary-fixed-variant": "#930013",
+                      "surface-container-lowest": "#ffffff",
+                      "on-secondary-container": "#00714d",
+                      "on-primary-fixed-variant": "#004395",
+                      "tertiary-fixed-dim": "#ffb3ad",
+                      "on-primary": "#ffffff",
+                      "inverse-on-surface": "#ecf1ff",
+                      "on-tertiary-fixed": "#410004",
+                      "on-primary-fixed": "#001a42",
+                      "outline": "#727785",
+                      "primary-container": "#2170e4",
+                      "surface-container": "#e7eeff",
+                      "primary-fixed-dim": "#adc6ff",
+                      "error": "#ba1a1a",
+                      "secondary-fixed-dim": "#4edea3",
+                      "surface-tint": "#005ac2",
+                      "on-tertiary-container": "#fffbff",
+                      "secondary": "#006c49",
+                      "surface-variant": "#d8e3fb",
+                      "surface-container-high": "#dee8ff",
+                      "outline-variant": "#c2c6d6",
+                      "on-error": "#ffffff",
+                      "on-error-container": "#93000a",
+                      "surface": "#f9f9ff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "gutter": "12px",
+                      "unit": "4px",
+                      "density-comfortable": "12px",
+                      "density-compact": "4px",
+                      "sidebar-width": "280px",
+                      "max-width-pos": "100%",
+                      "container-margin": "16px"
+              },
+              "fontFamily": {
+                      "label-mono": [
+                              "JetBrains Mono"
+                      ],
+                      "headline-lg": [
+                              "Hanken Grotesk"
+                      ],
+                      "display-price": [
+                              "Hanken Grotesk"
+                      ],
+                      "headline-md": [
+                              "Hanken Grotesk"
+                      ],
+                      "body-sm": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "headline-lg-mobile": [
+                              "Hanken Grotesk"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "label-mono": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg": [
+                              "30px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-price": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-sm": [
+                              "13px",
+                              {
+                                      "lineHeight": "18px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "30px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+            }
+          }
+        }
+      </script>
+<style>
+        body { background-color: #F8FAFC; } /* Level 0 Background */
+        .pos-grid {
+            display: grid;
+            grid-template-columns: 65% 35%;
+            height: calc(100vh - 56px); /* subtract top nav height */
+        }
+        @media (max-width: 1024px) {
+            .pos-grid { grid-template-columns: 1fr; }
+        }
+        
+        .product-card-hover:hover {
+            border-color: #0058be; /* Primary Action Blue */
+            box-shadow: 0px 4px 12px rgba(114, 119, 133, 0.12);
+        }
+        
+        .active-scan-item {
+            border-left: 2px solid #0058be; /* Primary Action Blue left border */
+            background-color: #f0f3ff; /* surface-container-low */
+        }
+    </style>
+</head>
+<body class="font-body-md text-on-surface bg-surface h-screen overflow-hidden flex flex-col">
+<!-- TopNavBar (Shared Component) -->
+<nav class="bg-surface-container-lowest dark:bg-inverse-surface border-b border-outline-variant dark:border-outline flex justify-between items-center px-gutter h-14 w-full flex-shrink-0 z-50">
+<div class="flex items-center space-x-6">
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-inverse-primary tracking-tight">MarketFlow ERP</span>
+<div class="hidden md:flex space-x-1">
+<a class="text-on-surface-variant dark:text-surface-variant px-3 py-2 rounded transition-colors duration-200 hover:bg-surface-container-low dark:hover:bg-surface-variant font-body-md text-body-md" href="#">Dashboard</a>
+<a class="text-on-surface-variant dark:text-surface-variant px-3 py-2 rounded transition-colors duration-200 hover:bg-surface-container-low dark:hover:bg-surface-variant font-body-md text-body-md" href="#">Analytics</a>
+<a class="text-on-surface-variant dark:text-surface-variant px-3 py-2 rounded transition-colors duration-200 hover:bg-surface-container-low dark:hover:bg-surface-variant font-body-md text-body-md" href="#">Branches</a>
+<a class="text-primary dark:text-inverse-primary border-b-2 border-primary dark:border-inverse-primary pb-1 px-3 py-2 rounded transition-colors duration-200 hover:bg-surface-container-low dark:hover:bg-surface-variant font-body-md text-body-md" href="#">POS</a>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<div class="flex space-x-2">
+<button aria-label="notifications" class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button aria-label="settings" class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+<div class="h-6 w-px bg-outline-variant"></div>
+<div class="flex items-center space-x-3 cursor-pointer group">
+<img alt="Manager Profile" class="w-8 h-8 rounded-full border border-outline-variant group-hover:border-primary transition-colors" data-alt="A professional headshot of a retail manager in a well-lit, modern office environment. High-key lighting, bright and modern aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAR21jVkYsnyBfOnw6NBzbAsdP6_d566vtOGzlPDS2SxVcjyUekDVRyaAC0zCSsErCU4mj3HuB8XK0iN8uXMDpnA52FIBEZ2pnGE9-dqXjjLDi2Kpt6-ViMw7VQjpudiIc9cVKme7YliUDfUEsbzLlY2c4-pHHvasBBkg--up52maqsNQ5aAYP9u-xr3upIHrz2522lnkGqAabhIknXyMw78juic68Omve8TwLGUAGhHE-MGEHdSAfv"/>
+<span class="text-on-surface-variant font-body-sm text-body-sm group-hover:text-primary transition-colors">Logout</span>
+</div>
+</div>
+</nav>
+<!-- Main POS Area -->
+<main class="pos-grid flex-grow overflow-hidden">
+<!-- Left: Search & Quick Select (65%) -->
+<section class="flex flex-col border-r border-outline-variant bg-surface-bright h-full overflow-hidden p-container-margin">
+<!-- Scan / Search Input -->
+<div class="mb-4 flex-shrink-0">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-2xl">search</span>
+<input class="w-full pl-12 pr-4 py-4 bg-surface-container-lowest border border-outline-variant rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent font-headline-md text-body-lg shadow-sm placeholder:text-outline placeholder:font-body-md transition-shadow" placeholder="Scan barcode or search product (F1)" type="text"/>
+<div class="absolute right-4 top-1/2 -translate-y-1/2 bg-surface-container px-2 py-1 rounded text-on-surface-variant font-label-mono text-label-mono">
+                        F1
+                    </div>
+</div>
+</div>
+<!-- Categories / Quick Select Header -->
+<div class="flex justify-between items-center mb-3 flex-shrink-0">
+<h2 class="font-headline-md text-headline-md text-on-surface">Quick Select</h2>
+<div class="flex space-x-2 overflow-x-auto pb-1 hide-scrollbar">
+<button class="px-4 py-1.5 bg-primary-container text-on-primary-container rounded-full font-body-sm text-body-sm whitespace-nowrap">All</button>
+<button class="px-4 py-1.5 border border-outline-variant text-on-surface-variant rounded-full font-body-sm text-body-sm hover:bg-surface-container-low transition-colors whitespace-nowrap">Produce</button>
+<button class="px-4 py-1.5 border border-outline-variant text-on-surface-variant rounded-full font-body-sm text-body-sm hover:bg-surface-container-low transition-colors whitespace-nowrap">Dairy</button>
+<button class="px-4 py-1.5 border border-outline-variant text-on-surface-variant rounded-full font-body-sm text-body-sm hover:bg-surface-container-low transition-colors whitespace-nowrap">Bakery</button>
+<button class="px-4 py-1.5 border border-outline-variant text-on-surface-variant rounded-full font-body-sm text-body-sm hover:bg-surface-container-low transition-colors whitespace-nowrap">Beverages</button>
+</div>
+</div>
+<!-- Grid of Items -->
+<div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 overflow-y-auto pr-2 pb-24">
+<!-- Product Card 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded p-3 flex flex-col justify-between cursor-pointer product-card-hover transition-all">
+<div class="flex justify-between items-start mb-2">
+<span class="font-body-sm text-body-sm font-medium text-on-surface line-clamp-2">Organic Bananas (kg)</span>
+<span class="material-symbols-outlined text-outline text-sm">eco</span>
+</div>
+<div>
+<div class="font-label-mono text-label-mono text-outline mb-1">SKU: 4011</div>
+<div class="font-headline-md text-body-lg text-primary font-semibold">$2.99</div>
+</div>
+</div>
+<!-- Product Card 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded p-3 flex flex-col justify-between cursor-pointer product-card-hover transition-all">
+<div class="flex justify-between items-start mb-2">
+<span class="font-body-sm text-body-sm font-medium text-on-surface line-clamp-2">Whole Milk 1L</span>
+</div>
+<div>
+<div class="font-label-mono text-label-mono text-outline mb-1">SKU: 8932</div>
+<div class="font-headline-md text-body-lg text-primary font-semibold">$1.49</div>
+</div>
+</div>
+<!-- Product Card 3 - Low Stock Alert -->
+<div class="bg-surface-container-lowest border border-error rounded p-3 flex flex-col justify-between cursor-pointer product-card-hover transition-all relative overflow-hidden">
+<div class="absolute top-0 right-0 bg-error text-on-error font-label-mono text-[10px] px-1.5 py-0.5 rounded-bl">Low Stock</div>
+<div class="flex justify-between items-start mb-2 mt-2">
+<span class="font-body-sm text-body-sm font-medium text-on-surface line-clamp-2">Sourdough Loaf</span>
+</div>
+<div>
+<div class="font-label-mono text-label-mono text-error mb-1">2 Left</div>
+<div class="font-headline-md text-body-lg text-primary font-semibold">$4.50</div>
+</div>
+</div>
+<!-- Product Card 4 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded p-3 flex flex-col justify-between cursor-pointer product-card-hover transition-all">
+<div class="flex justify-between items-start mb-2">
+<span class="font-body-sm text-body-sm font-medium text-on-surface line-clamp-2">Avocado Hass</span>
+</div>
+<div>
+<div class="font-label-mono text-label-mono text-outline mb-1">SKU: 4225</div>
+<div class="font-headline-md text-body-lg text-primary font-semibold">$1.99</div>
+</div>
+</div>
+<!-- Product Card 5 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded p-3 flex flex-col justify-between cursor-pointer product-card-hover transition-all">
+<div class="flex justify-between items-start mb-2">
+<span class="font-body-sm text-body-sm font-medium text-on-surface line-clamp-2">Craft Cola 6-Pack</span>
+</div>
+<div>
+<div class="font-label-mono text-label-mono text-outline mb-1">SKU: 1102</div>
+<div class="font-headline-md text-body-lg text-primary font-semibold">$6.99</div>
+</div>
+</div>
+<!-- ... Add more cards to fill grid ... -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded p-3 flex flex-col justify-between cursor-pointer product-card-hover transition-all">
+<div class="flex justify-between items-start mb-2">
+<span class="font-body-sm text-body-sm font-medium text-on-surface line-clamp-2">Red Onions (kg)</span>
+</div>
+<div>
+<div class="font-label-mono text-label-mono text-outline mb-1">SKU: 4082</div>
+<div class="font-headline-md text-body-lg text-primary font-semibold">$1.20</div>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded p-3 flex flex-col justify-between cursor-pointer product-card-hover transition-all">
+<div class="flex justify-between items-start mb-2">
+<span class="font-body-sm text-body-sm font-medium text-on-surface line-clamp-2">Farm Eggs 12ct</span>
+</div>
+<div>
+<div class="font-label-mono text-label-mono text-outline mb-1">SKU: 7731</div>
+<div class="font-headline-md text-body-lg text-primary font-semibold">$3.80</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Right: Cart & Transaction (35%) -->
+<section class="flex flex-col bg-surface-container-lowest h-full relative">
+<!-- Customer Info / Top Status -->
+<div class="p-4 border-b border-outline-variant flex justify-between items-center bg-surface flex-shrink-0">
+<div class="flex items-center space-x-3">
+<div class="w-10 h-10 rounded bg-primary-container text-on-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined">person</span>
+</div>
+<div>
+<div class="font-body-sm text-body-sm font-semibold text-on-surface">Walk-in Customer</div>
+<button class="font-body-sm text-body-sm text-primary hover:underline">Assign Loyalty Member</button>
+</div>
+</div>
+<div class="px-2 py-1 bg-surface-container-high rounded text-on-surface-variant font-label-mono text-label-mono flex items-center">
+<span class="material-symbols-outlined text-sm mr-1">schedule</span> Open Shift
+                </div>
+</div>
+<!-- Cart Table Header -->
+<div class="grid grid-cols-12 gap-2 px-4 py-2 border-b border-outline-variant bg-surface-dim font-body-sm text-body-sm text-on-surface-variant font-medium flex-shrink-0">
+<div class="col-span-5">Item</div>
+<div class="col-span-3 text-center">Qty</div>
+<div class="col-span-2 text-right">Price</div>
+<div class="col-span-2 text-right">Total</div>
+</div>
+<!-- Cart Items (High Density) -->
+<div class="flex-grow overflow-y-auto">
+<div class="divide-y divide-outline-variant">
+<!-- Cart Item 1 -->
+<div class="grid grid-cols-12 gap-2 px-4 py-2 items-center hover:bg-surface-container-low transition-colors">
+<div class="col-span-5">
+<div class="font-body-sm text-body-sm text-on-surface font-medium truncate">Organic Bananas (kg)</div>
+<div class="font-label-mono text-label-mono text-outline">SKU: 4011</div>
+</div>
+<div class="col-span-3 flex items-center justify-center space-x-1">
+<button class="w-6 h-6 rounded bg-surface border border-outline-variant text-on-surface flex items-center justify-center hover:bg-surface-container"><span class="material-symbols-outlined text-sm">remove</span></button>
+<span class="font-label-mono text-body-sm w-6 text-center">1.5</span>
+<button class="w-6 h-6 rounded bg-surface border border-outline-variant text-on-surface flex items-center justify-center hover:bg-surface-container"><span class="material-symbols-outlined text-sm">add</span></button>
+</div>
+<div class="col-span-2 text-right font-body-sm text-body-sm text-on-surface-variant">$2.99</div>
+<div class="col-span-2 text-right font-body-sm text-body-sm font-semibold text-on-surface">$4.48</div>
+</div>
+<!-- Cart Item 2 (Active Scan) -->
+<div class="grid grid-cols-12 gap-2 px-4 py-2 items-center active-scan-item relative">
+<!-- delete swipe action area -->
+<div class="absolute inset-y-0 right-0 w-12 bg-error text-on-error flex items-center justify-center cursor-pointer opacity-0 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined">delete</span>
+</div>
+<div class="col-span-5">
+<div class="font-body-sm text-body-sm text-on-surface font-medium truncate">Craft Cola 6-Pack</div>
+<div class="font-label-mono text-label-mono text-outline">SKU: 1102</div>
+</div>
+<div class="col-span-3 flex items-center justify-center space-x-1">
+<button class="w-6 h-6 rounded bg-surface border border-outline-variant text-on-surface flex items-center justify-center hover:bg-surface-container"><span class="material-symbols-outlined text-sm">remove</span></button>
+<span class="font-label-mono text-body-sm w-6 text-center">2</span>
+<button class="w-6 h-6 rounded bg-surface border border-outline-variant text-on-surface flex items-center justify-center hover:bg-surface-container"><span class="material-symbols-outlined text-sm">add</span></button>
+</div>
+<div class="col-span-2 text-right font-body-sm text-body-sm text-on-surface-variant">$6.99</div>
+<div class="col-span-2 text-right font-body-sm text-body-sm font-semibold text-on-surface">$13.98</div>
+</div>
+<!-- Cart Item 3 -->
+<div class="grid grid-cols-12 gap-2 px-4 py-2 items-center hover:bg-surface-container-low transition-colors">
+<div class="col-span-5">
+<div class="font-body-sm text-body-sm text-on-surface font-medium truncate">Whole Milk 1L</div>
+<div class="font-label-mono text-label-mono text-outline">SKU: 8932</div>
+</div>
+<div class="col-span-3 flex items-center justify-center space-x-1">
+<button class="w-6 h-6 rounded bg-surface border border-outline-variant text-on-surface flex items-center justify-center hover:bg-surface-container"><span class="material-symbols-outlined text-sm">remove</span></button>
+<span class="font-label-mono text-body-sm w-6 text-center">1</span>
+<button class="w-6 h-6 rounded bg-surface border border-outline-variant text-on-surface flex items-center justify-center hover:bg-surface-container"><span class="material-symbols-outlined text-sm">add</span></button>
+</div>
+<div class="col-span-2 text-right font-body-sm text-body-sm text-on-surface-variant">$1.49</div>
+<div class="col-span-2 text-right font-body-sm text-body-sm font-semibold text-on-surface">$1.49</div>
+</div>
+</div>
+</div>
+<!-- Transaction Summary & Actions (Bottom Fixed) -->
+<div class="border-t border-outline-variant bg-surface-bright flex-shrink-0">
+<!-- Totals -->
+<div class="p-4 space-y-2">
+<div class="flex justify-between font-body-md text-body-md text-on-surface-variant">
+<span>Subtotal (3 items)</span>
+<span>$19.95</span>
+</div>
+<div class="flex justify-between font-body-md text-body-md text-on-surface-variant">
+<span>Tax (8%)</span>
+<span>$1.60</span>
+</div>
+<div class="flex justify-between items-end pt-2 border-t border-outline border-dashed">
+<span class="font-headline-md text-headline-md text-on-surface">Total</span>
+<span class="font-display-price text-display-price text-primary tracking-tight">$21.55</span>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="p-4 grid grid-cols-12 gap-2 bg-surface">
+<button class="col-span-3 py-3 border border-outline-variant text-on-surface-variant font-body-md text-body-md font-medium rounded flex flex-col items-center justify-center hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined mb-1">pause_circle</span>
+                        Hold
+                    </button>
+<button class="col-span-3 py-3 border border-outline-variant text-on-surface-variant font-body-md text-body-md font-medium rounded flex flex-col items-center justify-center hover:bg-error-container hover:text-error hover:border-error transition-colors">
+<span class="material-symbols-outlined mb-1">delete</span>
+                        Discard
+                    </button>
+<button class="col-span-6 py-3 bg-secondary text-on-secondary font-headline-md text-headline-md font-bold rounded flex items-center justify-center hover:bg-on-secondary-fixed-variant transition-colors shadow-sm">
+<span class="material-symbols-outlined mr-2" style="font-variation-settings: 'FILL' 1;">payments</span>
+                        Pay (F12)
+                    </button>
+</div>
+</div>
+</section>
+</main>
+</body></html>

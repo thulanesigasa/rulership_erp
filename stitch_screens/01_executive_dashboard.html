@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MarketFlow ERP - Executive Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&amp;family=Inter:wght@400;500&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#d8e3fb",
+                        "on-tertiary": "#ffffff",
+                        "inverse-primary": "#adc6ff",
+                        "tertiary": "#b61722",
+                        "on-surface-variant": "#424754",
+                        "secondary-fixed": "#6ffbbe",
+                        "tertiary-container": "#da3437",
+                        "surface-container-low": "#f0f3ff",
+                        "primary-fixed": "#d8e2ff",
+                        "tertiary-fixed": "#ffdad7",
+                        "secondary-container": "#6cf8bb",
+                        "primary": "#0058be",
+                        "background": "#f9f9ff",
+                        "inverse-surface": "#263143",
+                        "on-secondary-fixed-variant": "#005236",
+                        "on-background": "#111c2d",
+                        "surface-bright": "#f9f9ff",
+                        "on-primary-container": "#fefcff",
+                        "on-surface": "#111c2d",
+                        "surface-dim": "#cfdaf2",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-fixed": "#002113",
+                        "on-tertiary-fixed-variant": "#930013",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-container": "#00714d",
+                        "on-primary-fixed-variant": "#004395",
+                        "tertiary-fixed-dim": "#ffb3ad",
+                        "on-primary": "#ffffff",
+                        "inverse-on-surface": "#ecf1ff",
+                        "on-tertiary-fixed": "#410004",
+                        "on-primary-fixed": "#001a42",
+                        "outline": "#727785",
+                        "primary-container": "#2170e4",
+                        "surface-container": "#e7eeff",
+                        "primary-fixed-dim": "#adc6ff",
+                        "error": "#ba1a1a",
+                        "secondary-fixed-dim": "#4edea3",
+                        "surface-tint": "#005ac2",
+                        "on-tertiary-container": "#fffbff",
+                        "secondary": "#006c49",
+                        "surface-variant": "#d8e3fb",
+                        "surface-container-high": "#dee8ff",
+                        "outline-variant": "#c2c6d6",
+                        "on-error": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "surface": "#f9f9ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "gutter": "12px",
+                        "unit": "4px",
+                        "density-comfortable": "12px",
+                        "density-compact": "4px",
+                        "sidebar-width": "280px",
+                        "max-width-pos": "100%",
+                        "container-margin": "16px"
+                    },
+                    "fontFamily": {
+                        "label-mono": ["JetBrains Mono"],
+                        "headline-lg": ["Hanken Grotesk"],
+                        "display-price": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "body-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-mono": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-lg": ["30px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "display-price": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "30px", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style type="text/tailwindcss">
+        @layer utilities {
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md antialiased overflow-hidden flex h-screen">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 flex flex-col h-full border-r border-outline-variant bg-surface-container w-sidebar-width z-20 hidden md:flex">
+<!-- Header -->
+<div class="p-gutter border-b border-outline-variant flex items-center gap-3 bg-surface-container">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-headline-md shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person</span>
+</div>
+<div class="overflow-hidden">
+<h2 class="font-headline-md text-headline-md font-bold text-primary truncate">Main Branch</h2>
+<p class="font-label-mono text-label-mono text-on-surface-variant truncate">ID: #8829-X</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<nav class="flex-1 overflow-y-auto py-2 scrollbar-hide">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant mx-2 my-1 hover:bg-surface-container-high scale-95 active:scale-100 transition-transform rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-body-md text-body-md">Inventory</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant mx-2 my-1 hover:bg-surface-container-high scale-95 active:scale-100 transition-transform rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined">store</span>
+<span class="font-body-md text-body-md">Branches</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 bg-primary-container text-on-primary-container rounded-xl mx-2 my-1 scale-95 active:scale-100 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<span class="font-body-md text-body-md font-medium">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant mx-2 my-1 hover:bg-surface-container-high scale-95 active:scale-100 transition-transform rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined">badge</span>
+<span class="font-body-md text-body-md">Staff</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant mx-2 my-1 hover:bg-surface-container-high scale-95 active:scale-100 transition-transform rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-md text-body-md">Settings</span>
+</a>
+</nav>
+<!-- CTA & Footer -->
+<div class="p-gutter border-t border-outline-variant bg-surface-container">
+<button class="w-full bg-primary text-on-primary py-2 px-4 rounded-DEFAULT font-body-md text-body-md hover:bg-primary-container hover:text-on-primary-container transition-colors duration-200 mb-4 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">add_shopping_cart</span>
+                New Sale (F1)
+            </button>
+<div class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high scale-95 active:scale-100 transition-transform rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined text-[20px]">help</span>
+<span class="font-body-md text-body-md">Support</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high scale-95 active:scale-100 transition-transform rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined text-[20px]">dark_mode</span>
+<span class="font-body-md text-body-md">Dark Mode</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col md:ml-[280px] h-screen overflow-hidden">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center px-gutter h-14 w-full bg-surface-container-lowest border-b border-outline-variant z-10 shrink-0">
+<div class="flex items-center gap-6">
+<!-- Mobile Menu Toggle (Visible only on small screens) -->
+<button class="md:hidden text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="font-headline-md text-headline-md font-bold text-primary hidden md:block">MarketFlow ERP</div>
+<nav class="hidden md:flex gap-6 h-full items-center">
+<a class="text-on-surface-variant font-body-md text-body-md hover:bg-surface-container-low transition-colors duration-200 px-2 py-1 rounded-DEFAULT" href="#">Dashboard</a>
+<a class="text-primary font-body-md text-body-md border-b-2 border-primary pb-1" href="#">Analytics</a>
+<a class="text-on-surface-variant font-body-md text-body-md hover:bg-surface-container-low transition-colors duration-200 px-2 py-1 rounded-DEFAULT" href="#">Branches</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+<input class="pl-8 pr-4 py-1.5 bg-surface-container-low border border-outline-variant rounded-full text-body-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-48 lg:w-64 transition-all" placeholder="Search..." type="text"/>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-1.5 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="p-1.5 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+<div class="h-6 w-px bg-outline-variant hidden sm:block"></div>
+<button class="hidden sm:flex items-center gap-2 text-primary font-body-sm hover:bg-surface-container-low px-3 py-1.5 rounded-DEFAULT transition-colors">
+                    Logout
+                </button>
+<!-- Mobile Profile Avatar -->
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container md:hidden">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">person</span>
+</div>
+</div>
+</header>
+<!-- Dashboard Canvas -->
+<div class="flex-1 overflow-y-auto bg-background p-container-margin md:p-6 lg:p-8">
+<div class="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<div>
+<h1 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">Executive Overview</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Real-time performance metrics across all active branches.</p>
+</div>
+<div class="flex items-center gap-2">
+<select class="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT px-3 py-1.5 text-body-sm font-body-sm text-on-surface focus:outline-none focus:border-primary">
+<option>Today</option>
+<option>This Week</option>
+<option>This Month</option>
+</select>
+<button class="bg-primary text-on-primary p-1.5 rounded-DEFAULT hover:bg-primary-container transition-colors">
+<span class="material-symbols-outlined text-[20px]">refresh</span>
+</button>
+</div>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+<!-- KPI Card 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-4 flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<span class="font-body-sm text-body-sm text-on-surface-variant uppercase tracking-wider">Total Revenue</span>
+<span class="material-symbols-outlined text-primary bg-primary-container/20 p-1 rounded-DEFAULT">payments</span>
+</div>
+<div>
+<div class="font-display-price text-[32px] text-on-surface">$124,500</div>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-secondary text-[16px]">trending_up</span>
+<span class="font-label-mono text-label-mono text-secondary">+12.5%</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant ml-1">vs last period</span>
+</div>
+</div>
+</div>
+<!-- KPI Card 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-4 flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<span class="font-body-sm text-body-sm text-on-surface-variant uppercase tracking-wider">Avg Transaction</span>
+<span class="material-symbols-outlined text-secondary bg-secondary-container/20 p-1 rounded-DEFAULT">receipt_long</span>
+</div>
+<div>
+<div class="font-display-price text-[32px] text-on-surface">$42.80</div>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-error text-[16px]">trending_down</span>
+<span class="font-label-mono text-label-mono text-error">-2.1%</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant ml-1">vs last period</span>
+</div>
+</div>
+</div>
+<!-- KPI Card 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-4 flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<span class="font-body-sm text-body-sm text-on-surface-variant uppercase tracking-wider">Inventory Health</span>
+<span class="material-symbols-outlined text-tertiary bg-tertiary-container/10 p-1 rounded-DEFAULT">inventory</span>
+</div>
+<div>
+<div class="font-display-price text-[32px] text-on-surface">94%</div>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
+<span class="font-label-mono text-label-mono text-on-surface-variant">Optimal</span>
+</div>
+</div>
+</div>
+<!-- KPI Card 4 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-4 flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<span class="font-body-sm text-body-sm text-on-surface-variant uppercase tracking-wider">Active Cashiers</span>
+<span class="material-symbols-outlined text-primary bg-primary-container/20 p-1 rounded-DEFAULT">point_of_sale</span>
+</div>
+<div>
+<div class="font-display-price text-[32px] text-on-surface">48/50</div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5 mt-3">
+<div class="bg-primary h-1.5 rounded-full" style="width: 96%"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Main Data Section -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Chart Area (Placeholder for Multi-Branch Performance) -->
+<div class="lg:col-span-2 bg-surface-container-lowest border border-outline-variant rounded-xl p-5">
+<div class="flex justify-between items-center mb-4">
+<h3 class="font-headline-md text-headline-md text-on-surface">Branch Performance</h3>
+<button class="text-primary text-body-sm font-medium hover:underline">View All</button>
+</div>
+<div class="h-64 w-full bg-surface-container-low rounded-lg border border-outline-variant border-dashed flex items-center justify-center relative overflow-hidden group">
+<!-- Simulated Chart Grid -->
+<div class="absolute inset-0 grid grid-cols-6 gap-2 p-4 opacity-20">
+<div class="border-r border-outline-variant border-dashed h-full"></div>
+<div class="border-r border-outline-variant border-dashed h-full"></div>
+<div class="border-r border-outline-variant border-dashed h-full"></div>
+<div class="border-r border-outline-variant border-dashed h-full"></div>
+<div class="border-r border-outline-variant border-dashed h-full"></div>
+<div class="h-full"></div>
+</div>
+<p class="text-on-surface-variant font-body-sm relative z-10 flex flex-col items-center gap-2 group-hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[32px] opacity-50">bar_chart</span>
+                            Chart Visualization Area
+                        </p>
+</div>
+</div>
+<!-- Recent Activity Feed -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 flex flex-col">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-4">Live Activity</h3>
+<div class="flex-1 overflow-y-auto pr-2 space-y-4">
+<!-- Activity Item 1 -->
+<div class="flex gap-3 items-start">
+<div class="w-2 h-2 mt-1.5 rounded-full bg-secondary shrink-0"></div>
+<div>
+<p class="font-body-sm text-body-sm text-on-surface"><span class="font-medium">Large transaction</span> completed at Downtown Branch.</p>
+<span class="font-label-mono text-[10px] text-on-surface-variant">2 mins ago</span>
+</div>
+</div>
+<!-- Activity Item 2 -->
+<div class="flex gap-3 items-start">
+<div class="w-2 h-2 mt-1.5 rounded-full bg-error shrink-0"></div>
+<div>
+<p class="font-body-sm text-body-sm text-on-surface"><span class="font-medium">Voided transaction</span> by Cashier #42 at Uptown.</p>
+<span class="font-label-mono text-[10px] text-on-surface-variant">15 mins ago</span>
+</div>
+</div>
+<!-- Activity Item 3 -->
+<div class="flex gap-3 items-start">
+<div class="w-2 h-2 mt-1.5 rounded-full bg-primary shrink-0"></div>
+<div>
+<p class="font-body-sm text-body-sm text-on-surface"><span class="font-medium">Shift opened</span> by Manager J.Smith at Westside.</p>
+<span class="font-label-mono text-[10px] text-on-surface-variant">1 hr ago</span>
+</div>
+</div>
+<!-- Activity Item 4 -->
+<div class="flex gap-3 items-start opacity-70">
+<div class="w-2 h-2 mt-1.5 rounded-full bg-tertiary shrink-0"></div>
+<div>
+<p class="font-body-sm text-body-sm text-on-surface"><span class="font-medium">Inventory adjustment</span> - Manual override on Milk 1L.</p>
+<span class="font-label-mono text-[10px] text-on-surface-variant">3 hrs ago</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Data Table Section -->
+<div class="mt-6 bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+<div class="p-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-error">warning</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Critical Stock Alerts</h3>
+</div>
+<button class="text-primary font-body-sm hover:underline flex items-center gap-1">
+                        Export <span class="material-symbols-outlined text-[16px]">download</span>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-outline-variant bg-surface-container-lowest font-label-mono text-label-mono text-on-surface-variant uppercase">
+<th class="py-2 px-4 font-medium">SKU</th>
+<th class="py-2 px-4 font-medium">Product Name</th>
+<th class="py-2 px-4 font-medium">Branch Location</th>
+<th class="py-2 px-4 font-medium">Current Stock</th>
+<th class="py-2 px-4 font-medium text-right">Action</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm">
+<tr class="border-b border-outline-variant/50 hover:bg-surface-container-low/50 transition-colors">
+<td class="py-2 px-4 font-label-mono">1029384</td>
+<td class="py-2 px-4 text-on-surface font-medium">Organic Bananas (kg)</td>
+<td class="py-2 px-4 text-on-surface-variant">Downtown HQ</td>
+<td class="py-2 px-4 text-error font-medium">12 kg <span class="text-on-surface-variant font-normal text-[11px]">(Min: 50)</span></td>
+<td class="py-2 px-4 text-right">
+<button class="text-primary hover:text-primary-container transition-colors">Reorder</button>
+</td>
+</tr>
+<tr class="border-b border-outline-variant/50 bg-surface-container-lowest hover:bg-surface-container-low/50 transition-colors">
+<td class="py-2 px-4 font-label-mono">5582910</td>
+<td class="py-2 px-4 text-on-surface font-medium">Whole Milk 1 Gallon</td>
+<td class="py-2 px-4 text-on-surface-variant">Uptown Express</td>
+<td class="py-2 px-4 text-error font-medium">4 units <span class="text-on-surface-variant font-normal text-[11px]">(Min: 20)</span></td>
+<td class="py-2 px-4 text-right">
+<button class="text-primary hover:text-primary-container transition-colors">Reorder</button>
+</td>
+</tr>
+<tr class="border-b border-outline-variant/50 hover:bg-surface-container-low/50 transition-colors">
+<td class="py-2 px-4 font-label-mono">8837261</td>
+<td class="py-2 px-4 text-on-surface font-medium">Store Brand Paper Towels</td>
+<td class="py-2 px-4 text-on-surface-variant">Westside Plaza</td>
+<td class="py-2 px-4 text-tertiary-container font-medium">0 units <span class="text-on-surface-variant font-normal text-[11px]">(Min: 45)</span></td>
+<td class="py-2 px-4 text-right">
+<button class="text-primary hover:text-primary-container transition-colors">Reorder</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+</body></html>
