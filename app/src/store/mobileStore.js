@@ -82,43 +82,50 @@ class MobileStore {
       else prod = this.products[0];
     }
 
-    if (prod.stock <= 0) {
-      prod.stock = 100; // Replenish stock for demo
-      prod.status = 'In Stock';
-    }
-    
     if (this.scanMode === 'restock') {
+      // Restock mode: only increase stock
       prod.stock += 1;
       prod.status = 'In Stock';
     } else {
+      // POS Payment mode: decrease stock AND add to cart
+      if (prod.stock <= 0) {
+        prod.stock = 50; // Replenish for demo
+        prod.status = 'In Stock';
+      }
       prod.stock -= 1;
       if (prod.stock <= 0) prod.status = 'Out of Stock';
-    }
 
-    // Always push item to cart in POS Payment Mode
-    const existingCartItem = this.cart.find(c => c.productId === prod.id);
-    if (existingCartItem) {
-      existingCartItem.qty += 1;
-    } else {
-      this.cart.push({
-        productId: prod.id,
-        name: prod.name,
-        sku: prod.sku,
-        barcode: prod.barcode,
-        price: prod.price,
-        qty: 1
-      });
+      // Add to cart ONLY in POS mode
+      const existingCartItem = this.cart.find(c => c.productId === prod.id);
+      if (existingCartItem) {
+        existingCartItem.qty += 1;
+      } else {
+        this.cart.push({
+          productId: prod.id,
+          name: prod.name,
+          sku: prod.sku,
+          barcode: prod.barcode,
+          price: prod.price,
+          qty: 1
+        });
+      }
     }
 
     const logEntry = {
       id: Date.now(),
-      text: `Scanned ${prod.name} (${prod.barcode}) @ R 69.99. Added to cart.`,
+      text: this.scanMode === 'pos'
+        ? `Scanned ${prod.name} (${prod.barcode}) @ R 69.99. Added to cart.`
+        : `Restocked +1 ${prod.name} (${prod.barcode}). Stock: ${prod.stock}.`,
       type: this.scanMode,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     this.scanLog.unshift(logEntry);
     this.notify();
-    return { success: true, message: `Scanned ${prod.name} (R 69.99). Added to cart!`, product: prod };
+
+    const msg = this.scanMode === 'pos'
+      ? `Added ${prod.name} to cart @ R 69.99!`
+      : `Restocked +1 ${prod.name}. New stock: ${prod.stock}.`;
+    return { success: true, message: msg, product: prod };
   }
 
   updateCartQty(productId, delta) {

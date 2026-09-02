@@ -26,6 +26,8 @@ export function ScannerScreen() {
   const [cameraPaused, setCameraPaused] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const cooldownTimerRef = useRef(null);
+  // Ref-based guard so handleBarcodeScanned always reads latest value
+  const cameraPausedRef = useRef(false);
 
   // Smooth up-and-down moving blue laser animation
   const laserAnim = useRef(new Animated.Value(0)).current;
@@ -79,6 +81,7 @@ export function ScannerScreen() {
   }, []);
 
   const trigger3SecondCooldown = () => {
+    cameraPausedRef.current = true;
     setCameraPaused(true);
     setCooldownSeconds(3);
 
@@ -89,6 +92,8 @@ export function ScannerScreen() {
       remaining -= 1;
       if (remaining <= 0) {
         clearInterval(cooldownTimerRef.current);
+        cooldownTimerRef.current = null;
+        cameraPausedRef.current = false;
         setCameraPaused(false);
         setCooldownSeconds(0);
       } else {
@@ -110,7 +115,7 @@ export function ScannerScreen() {
     setScanResult(res);
     setInputCode('');
 
-    // Trigger 3-second camera pause & auto-reopen
+    // Trigger 3-second pause after scan so camera doesn't double-fire
     if (cameraActive) {
       trigger3SecondCooldown();
     }
@@ -134,7 +139,8 @@ export function ScannerScreen() {
   };
 
   const handleBarcodeScanned = (scanEvent) => {
-    if (cameraPaused) return;
+    // Use ref so this always reads the live value, no stale closure
+    if (cameraPausedRef.current) return;
 
     const barcodeData = scanEvent?.data || scanEvent?.raw || '2024699900012';
     handleScanSubmit(barcodeData);
