@@ -28,23 +28,8 @@ export async function playScanBeep() {
         osc.start();
         osc.stop(ctx.currentTime + 0.15);
       }
-    } else {
-      // 3. Try expo-av safely if native module exists in the client build
-      try {
-        const { Audio } = require('expo-av');
-        const { sound } = await Audio.Sound.createAsync(
-          require('../../assets/beep.mp3')
-        );
-        await sound.playAsync();
-        sound.setOnPlaybackStatusUpdate((status) => {
-          if (status?.didJustFinish) {
-            sound.unloadAsync();
-          }
-        });
-      } catch (audioErr) {
-        // ExponentAV native module not present in this Expo Go binary — vibration already handled
-      }
-    }
+    // Mobile uses Haptic Vibration feedback which is natively supported everywhere in React Native
+    return;
   } catch (e) {
     // Fallback guard
   }
