@@ -5,7 +5,7 @@
  * Imports canonical product data from the shared product catalog
  * to ensure web and mobile use the exact same barcodes.
  */
-import { PRODUCT_CATALOG, lookupByBarcode } from '../../../shared/productCatalog';
+import { PRODUCT_CATALOG, lookupByBarcode } from './sharedProductCatalog';
 
 // We export a mobile-specific format of the catalog (with runtime 'stock' field)
 export const BARCODE_DATABASE = PRODUCT_CATALOG.map(p => ({

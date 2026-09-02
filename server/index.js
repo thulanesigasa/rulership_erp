@@ -4,11 +4,11 @@ import bodyParser from 'body-parser';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { PRODUCT_CATALOG } from '../shared/productCatalog.js';
+import { PRODUCT_CATALOG } from '../app/src/store/sharedProductCatalog.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const STATE_FILE = path.join(__dirname, '../shared/inventoryState.json');
+const STATE_FILE = path.join(__dirname, 'inventoryState.json');
 
 const app = express();
 app.use(cors());
