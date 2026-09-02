@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Animated, Modal
+  TextInput, Animated, Modal, Dimensions
 } from 'react-native';
+
+const SCREEN = Dimensions.get('window');
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { mobileStore, formatCurrency } from '../store/mobileStore';
 import { SvgIcon } from '../components/SvgIcon';
@@ -29,9 +31,10 @@ export function ScannerScreen() {
   const isCoolingDown = useRef(false);
   const cooldownInterval = useRef(null);
 
-  // Blue laser animation
+  // Laser animation — driven by measured camera container height
   const laserAnim = useRef(new Animated.Value(0)).current;
   const laserAnimation = useRef(null);
+  const [camAreaHeight, setCamAreaHeight] = useState(SCREEN.height - 200);
 
   const syncState = () => {
     setStoreState({
@@ -50,24 +53,27 @@ export function ScannerScreen() {
     return () => unsub();
   }, []);
 
-  // Start/stop laser animation when camera opens/closes
+  // Restart laser whenever camera area height or cooldown changes
   useEffect(() => {
-    if (cameraOpen && cooldownSeconds === 0) {
+    if (laserAnimation.current) {
+      laserAnimation.current.stop();
+      laserAnimation.current = null;
+    }
+    if (cameraOpen && cooldownSeconds === 0 && camAreaHeight > 0) {
       laserAnim.setValue(0);
+      const travel = camAreaHeight - 4; // full height of camera container
       laserAnimation.current = Animated.loop(
         Animated.sequence([
-          Animated.timing(laserAnim, { toValue: 180, duration: 1600, useNativeDriver: true }),
-          Animated.timing(laserAnim, { toValue: 0, duration: 1600, useNativeDriver: true })
+          Animated.timing(laserAnim, { toValue: travel, duration: 1800, useNativeDriver: true }),
+          Animated.timing(laserAnim, { toValue: 0, duration: 1800, useNativeDriver: true })
         ])
       );
       laserAnimation.current.start();
-    } else {
-      if (laserAnimation.current) laserAnimation.current.stop();
     }
     return () => {
       if (laserAnimation.current) laserAnimation.current.stop();
     };
-  }, [cameraOpen, cooldownSeconds]);
+  }, [cameraOpen, cooldownSeconds, camAreaHeight]);
 
   const startCooldown = () => {
     isCoolingDown.current = true;
@@ -157,49 +163,52 @@ export function ScannerScreen() {
             </Text>
           </View>
 
-          {cooldownSeconds > 0 ? (
-            /* 3-second cooldown screen between scans */
-            <View style={styles.cooldownScreen}>
-              <View style={styles.cooldownCheckBadge}>
-                <SvgIcon name="check" size={28} color="#ffffff" />
-              </View>
-              <Text style={styles.cooldownTitle}>
-                {scanResult?.product ? scanResult.product.name : 'Item Scanned!'}
-              </Text>
-              <Text style={styles.cooldownSub}>
-                {isPos ? 'Added to POS Cart' : 'Inventory Restocked'}
-              </Text>
-              <View style={styles.cooldownPill}>
-                <Text style={styles.cooldownCount}>Re-opening in {cooldownSeconds}s</Text>
-              </View>
-            </View>
-          ) : (
-            /* Live camera feed — NO overlapping touch views */
-            <View style={styles.cameraFeed}>
-              {permission?.granted && (
-                <CameraView
-                  style={StyleSheet.absoluteFillObject}
-                  facing="back"
-                  onBarcodeScanned={onBarcodeRead}
-                  barcodeScannerSettings={{
-                    barcodeTypes: ['qr', 'code128', 'ean13', 'ean8', 'upc_a', 'upc_e']
-                  }}
-                />
-              )}
+          {/* Camera always mounted — onBarcodeScanned undefined during cooldown pauses scanning */}
+          <View
+            style={styles.cameraFeed}
+            onLayout={(e) => setCamAreaHeight(e.nativeEvent.layout.height)}
+          >
+            <CameraView
+              style={{ flex: 1 }}
+              facing="back"
+              onBarcodeScanned={cooldownSeconds > 0 ? undefined : onBarcodeRead}
+              barcodeScannerSettings={{
+                barcodeTypes: ['qr', 'code128', 'ean13', 'ean8', 'upc_a', 'upc_e']
+              }}
+            />
 
-              {/* Laser bar — pointerEvents none so camera gets all touch */}
+            {/* All overlays — pointerEvents=none so camera gets native touch events */}
+            <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+              {/* Scanning laser — top to bottom */}
               <Animated.View
-                pointerEvents="none"
                 style={[styles.laser, { transform: [{ translateY: laserAnim }] }]}
               />
 
               {/* Corner reticle marks */}
-              <View pointerEvents="none" style={[styles.corner, styles.cornerTL]} />
-              <View pointerEvents="none" style={[styles.corner, styles.cornerTR]} />
-              <View pointerEvents="none" style={[styles.corner, styles.cornerBL]} />
-              <View pointerEvents="none" style={[styles.corner, styles.cornerBR]} />
+              <View style={[styles.corner, styles.cornerTL]} />
+              <View style={[styles.corner, styles.cornerTR]} />
+              <View style={[styles.corner, styles.cornerBL]} />
+              <View style={[styles.corner, styles.cornerBR]} />
+
+              {/* 3-second cooldown overlay — shown on top of live camera */}
+              {cooldownSeconds > 0 && (
+                <View style={styles.cooldownOverlay}>
+                  <View style={styles.cooldownCheckBadge}>
+                    <SvgIcon name="check" size={28} color="#ffffff" />
+                  </View>
+                  <Text style={styles.cooldownTitle}>
+                    {scanResult?.product ? scanResult.product.name : 'Item Scanned!'}
+                  </Text>
+                  <Text style={styles.cooldownSub}>
+                    {isPos ? 'Added to POS Cart' : 'Inventory Restocked'}
+                  </Text>
+                  <View style={styles.cooldownPill}>
+                    <Text style={styles.cooldownCount}>Re-scanning in {cooldownSeconds}s</Text>
+                  </View>
+                </View>
+              )}
             </View>
-          )}
+          </View>
 
           {/* Close camera button */}
           <TouchableOpacity style={styles.closeCamButton} onPress={closeCamera}>
@@ -397,7 +406,7 @@ const styles = StyleSheet.create({
   camHeaderTitle: { fontSize: 18, fontWeight: '800', color: '#ffffff', letterSpacing: -0.5 },
   camHeaderSub: { fontSize: 11, color: '#94a3b8', marginTop: 2 },
 
-  cameraFeed: { flex: 1, position: 'relative', overflow: 'hidden' },
+  cameraFeed: { flex: 1 },
 
   laser: {
     position: 'absolute', top: 0, left: 0, right: 0,
@@ -414,10 +423,11 @@ const styles = StyleSheet.create({
   cornerBL: { bottom: 40, left: 40, borderBottomWidth: 3, borderLeftWidth: 3 },
   cornerBR: { bottom: 40, right: 40, borderBottomWidth: 3, borderRightWidth: 3 },
 
-  // Cooldown screen
-  cooldownScreen: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#0f172a', gap: 10
+  // Cooldown overlay — on top of live camera feed
+  cooldownOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    alignItems: 'center', justifyContent: 'center', gap: 10
   },
   cooldownCheckBadge: {
     width: 56, height: 56, borderRadius: 28,
