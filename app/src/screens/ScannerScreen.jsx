@@ -81,13 +81,10 @@ export function ScannerScreen() {
     syncState();
     setScanResult(res);
     
-    // Immediately close camera on successful scan (as requested)
+    // Close camera immediately on successful scan to prevent multi-frame reads
     if (cameraActive && res.success) {
-      setTimeout(() => {
-        closeCamera();
-      }, 300); // Slight delay so user hears beep and sees success before it snaps shut
+      closeCamera();
     }
-    isProcessing.current = false;
   };
 
   // onBarcodeScanned fires from CameraView
