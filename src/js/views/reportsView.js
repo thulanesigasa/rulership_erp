@@ -78,7 +78,7 @@ export function renderReportsView() {
               </tr>
             </thead>
             <tbody>
-              ${state.detergents.map(d => {
+              ${state.products.map(d => {
                 const revenue = d.totalStock * d.price;
                 const vat = revenue * (state.vatRate / (1 + state.vatRate));
                 return `

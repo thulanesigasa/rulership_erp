@@ -358,7 +358,7 @@ export async function syncWebWithServer() {
       const data = await res.json();
       let changed = false;
       data.forEach(item => {
-        const prod = state.detergents.find(d => d.id === item.id);
+        const prod = state.products.find(d => d.id === item.id);
         if (prod && prod.totalStock !== item.totalStock) {
           prod.totalStock = item.totalStock;
           prod.status = item.status;
