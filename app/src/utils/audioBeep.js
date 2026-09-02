@@ -26,7 +26,7 @@ export async function playScanBeep() {
     } else {
       Vibration.vibrate(60);
       const { sound } = await Audio.Sound.createAsync(
-        require('../../assets/beep.ogg')
+        require('../../assets/beep.mp3')
       );
       await sound.playAsync();
       
